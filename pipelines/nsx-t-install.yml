@@ -124,19 +124,18 @@ resources:
 - name: nsx-t-gen-pipeline
   type: git
   source:
-    # uri: https://github.com/sparameswaran/nsx-t-gen.git
-    uri: https://github.com/kais66/nsx-t-gen.git
-    branch: skai/initial_cmt
+    uri: https://github.com/vmware/nsx-t-datacenter-ci-pipelines.git
     params:
       disable_git_lfs: true
+    private_key: ((ansible_for_nsxt_key))
+    branch: master
 
 - name: nsxt-ansible
   type: git
   source:
-    # uri: https://github.com/vmware/ansible-for-nsxt.git
-    uri: git@github.com:vmware/ansible-for-nsxt.git
+    uri: https://github.com/vmware/ansible-for-nsxt.git
+    #uri: git@github.com:vmware/ansible-for-nsxt.git
     branch: master
-    private_key: ((ansible_for_nsxt_key))
 
 # Download NSX-T 2.1 bits from
 # https://my.vmware.com/group/vmware/details?downloadGroup=NSX-T-210&productId=673
