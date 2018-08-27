@@ -1,0 +1,20 @@
+---
+
+platform: linux
+
+image_resource:
+  type: docker-image
+  source: {repository: nsxedgegen/nsx-t-gen-worker}
+  
+# params:
+#   VCENTER_HOST:
+#   VCENTER_USR:
+#   VCENTER_PWD:
+
+    
+inputs:
+  - name: nsx-t-gen-pipeline
+  
+run:
+  path: nsx-t-gen-pipeline/tasks/uninstall-nsx-t/task.sh
+

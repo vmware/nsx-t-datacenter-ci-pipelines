@@ -1,0 +1,221 @@
+---
+# Use reference instead of repeating the nsx-t params
+nsx_t_gen_params: &nsx-t-gen-params
+  enable_ansible_debug_int: ((enable_ansible_debug))
+  vcenter_ip_int: ((vcenter_ip))
+  vcenter_username_int: ((vcenter_username))
+  vcenter_password_int: ((vcenter_password))
+  vcenter_datacenter_int: ((vcenter_datacenter))
+  vcenter_cluster_int: ((vcenter_cluster))
+  vcenter_datastore_int: ((vcenter_datastore))
+  mgmt_portgroup_int: ((mgmt_portgroup))
+  dns_server_int: ((dns_server))
+  dns_domain_int: ((dns_domain))
+  ntp_servers_int: ((ntp_servers))
+  default_gateway_int: ((default_gateway))
+  netmask_int: ((netmask))
+  nsx_image_webserver_int: ((nsx_image_webserver))
+  ova_file_name_int: ((ova_file_name))
+  ovftool_file_name_int: ((ovftool_file_name))
+  nsx_manager_ip_int: ((nsx_manager_ip))
+  nsx_manager_username_int: ((nsx_manager_username))
+  nsx_manager_password_int: ((nsx_manager_password))
+  nsx_manager_assigned_hostname_int: ((nsx_manager_assigned_hostname))
+  nsx_manager_root_pwd_int: ((nsx_manager_root_pwd))
+  nsx_manager_deployment_size_int: ((nsx_manager_deployment_size))
+  nsx_manager_ssh_enabled_int: ((nsx_manager_ssh_enabled))
+  compute_manager_username_int: ((compute_manager_username))
+  compute_manager_password_int: ((compute_manager_password))
+  edge_uplink_profile_vlan_int: ((edge_uplink_profile_vlan))
+  esxi_uplink_profile_vlan_int: ((esxi_uplink_profile_vlan))
+  vtep_ip_pool_cidr_int: ((vtep_ip_pool_cidr))
+  vtep_ip_pool_gateway_int: ((vtep_ip_pool_gateway))
+  vtep_ip_pool_start_int: ((vtep_ip_pool_start))
+  vtep_ip_pool_end_int: ((vtep_ip_pool_end))
+
+  resource_reservation_off_int: ((resource_reservation_off))
+  controller_ips_int: ((controller_ips))
+  controller_default_gateway_int: ((controller_default_gateway))
+  controller_ip_prefix_length_int: ((controller_ip_prefix_length))
+  controller_hostname_prefix_int: ((controller_hostname_prefix))
+  controller_cli_password_int: ((controller_cli_password))
+  controller_root_password_int: ((controller_root_password))
+  controller_deployment_size_int: ((controller_deployment_size))
+  vc_datacenter_for_controller_int: ((vc_datacenter_for_controller))
+  vc_cluster_for_controller_int: ((vc_cluster_for_controller))
+  vc_datastore_for_controller_int: ((vc_datastore_for_controller))
+  vc_management_network_for_controller_int: ((vc_management_network_for_controller))
+
+  controller_shared_secret_int: ((controller_shared_secret))
+  edge_ips_int: ((edge_ips))
+  edge_default_gateway_int: ((edge_default_gateway))
+  edge_ip_prefix_length_int: ((edge_ip_prefix_length))
+  edge_hostname_prefix_int: ((edge_hostname_prefix))
+  edge_transport_node_prefix_int: ((edge_transport_node_prefix))
+  edge_cli_password_int: ((edge_cli_password))
+  edge_root_password_int: ((edge_root_password))
+  edge_deployment_size_int: ((edge_deployment_size))
+  vc_datacenter_for_edge_int: ((vc_datacenter_for_edge))
+  vc_cluster_for_edge_int: ((vc_cluster_for_edge))
+  vc_datastore_for_edge_int: ((vc_datastore_for_edge))
+  vc_uplink_network_for_edge_int: ((vc_uplink_network_for_edge))
+  vc_overlay_network_for_edge_int: ((vc_overlay_network_for_edge))
+  vc_management_network_for_edge_int: ((vc_management_network_for_edge))
+  clusters_to_install_nsx_int: ((clusters_to_install_nsx))
+  per_cluster_vlans_int: ((per_cluster_vlans))
+  esx_ips_int: ((esx_ips))
+  esx_os_version_int: ((esx_os_version))
+  esx_root_password_int: ((esx_root_password))
+  esx_hostname_prefix_int: ((esx_hostname_prefix))
+  esx_available_vmnic_int: ((esx_available_vmnic))
+
+  tier0_router_name_int: ((tier0_router_name))
+  tier0_uplink_port_ip_int: ((tier0_uplink_port_ip))
+  tier0_uplink_port_subnet_int: ((tier0_uplink_port_subnet))
+  tier0_uplink_next_hop_ip_int: ((tier0_uplink_next_hop_ip))
+  tier0_uplink_port_ip_2_int: ((tier0_uplink_port_ip_2))
+  tier0_ha_vip_int: ((tier0_ha_vip))
+
+  compute_manager_2_username_int: ((compute_manager_2_username))
+  compute_manager_2_password_int: ((compute_manager_2_password))
+  compute_manager_2_vcenter_ip_int: ((compute_manager_2_vcenter_ip))
+
+  nsx_t_t1router_logical_switches_spec_int: ((nsx_t_t1router_logical_switches_spec))
+  nsx_t_ha_switching_profile_spec_int: ((nsx_t_ha_switching_profile_spec))
+  nsx_t_container_ip_block_spec_int: ((nsx_t_container_ip_block_spec))
+  nsx_t_external_ip_pool_spec_int: ((nsx_t_external_ip_pool_spec))
+  nsx_t_nat_rules_spec_int: ((nsx_t_nat_rules_spec))
+  nsx_t_csr_request_spec_int: ((nsx_t_csr_request_spec))
+  nsx_t_lbr_spec_int: ((nsx_t_lbr_spec))
+
+groups:
+
+- name: full-install-config
+  jobs:
+  - install-nsx-t
+  - add-nsx-t-routers
+  - config-nsx-t-extras
+
+- name: install-nsx-t
+  jobs:
+  - standalone-install-nsx-t
+
+- name: add-nsx-t-routers
+  jobs:
+  - standalone-add-nsx-t-routers
+
+- name: config-nsx-t-extras
+  jobs:
+  - standalone-config-nsx-t-extras
+
+# - name: cleanup
+#   jobs:
+#   - uninstall-nsx-t
+
+resource_types:
+- name: file-url
+  type: docker-image
+  source:
+    repository: pivotalservices/concourse-curl-resource
+    tag: latest
+
+
+resources:
+- name: nsx-t-gen-pipeline
+  type: git
+  source:
+    # uri: https://github.com/sparameswaran/nsx-t-gen.git
+    uri: https://github.com/kais66/nsx-t-gen.git
+    branch: skai/initial_cmt
+    params:
+      disable_git_lfs: true
+
+- name: nsxt-ansible
+  type: git
+  source:
+    # uri: https://github.com/vmware/ansible-for-nsxt.git
+    uri: git@github.com:vmware/ansible-for-nsxt.git
+    branch: master
+    private_key: ((ansible_for_nsxt_key))
+
+# Download NSX-T 2.1 bits from
+# https://my.vmware.com/group/vmware/details?downloadGroup=NSX-T-210&productId=673
+# Download from https://my.vmware.com/group/vmware/details?productId=614&downloadGroup=OVFTOOL420#
+- name: ovftool
+  type: file-url
+  source:
+    url: ((nsx_image_webserver))/((ovftool_file_name))
+    filename: ((ovftool_file_name))
+    skip_ssl_verification: true
+
+jobs:
+
+- name: install-nsx-t
+  plan:
+  - aggregate:
+    - get: nsx-t-gen-pipeline
+    - get: nsxt-ansible
+    - get: ovftool
+
+  - task: install-nsx-t
+    file: nsx-t-gen-pipeline/tasks/install-nsx-t/task.yml
+    params: *nsx-t-gen-params
+
+- name: add-nsx-t-routers
+  plan:
+  - aggregate:
+    - get: nsx-t-gen-pipeline
+    - get: nsxt-ansible
+      params: {globs: []}
+      passed: [install-nsx-t]
+      trigger: true
+
+  - task: add-nsx-t-routers
+    file: nsx-t-gen-pipeline/tasks/add-nsx-t-routers/task.yml
+    params: *nsx-t-gen-params
+
+- name: config-nsx-t-extras
+  plan:
+  - aggregate:
+    - get: nsx-t-gen-pipeline
+    - get: nsxt-ansible
+      params: {globs: []}
+      passed: [add-nsx-t-routers]
+      trigger: true
+
+  - task: config-nsx-t-extras
+    file: nsx-t-gen-pipeline/tasks/config-nsx-t-extras/task.yml
+    params: *nsx-t-gen-params
+
+- name: standalone-install-nsx-t
+  plan:
+  - aggregate:
+    - get: nsx-t-gen-pipeline
+    - get: nsxt-ansible
+    - get: ovftool
+
+  - task: install-nsx-t
+    file: nsx-t-gen-pipeline/tasks/install-nsx-t/task.yml
+    params: *nsx-t-gen-params
+
+- name: standalone-add-nsx-t-routers
+  plan:
+  - aggregate:
+    - get: nsx-t-gen-pipeline
+    - get: nsxt-ansible
+      params: {globs: []}
+
+  - task: add-nsx-t-routers
+    file: nsx-t-gen-pipeline/tasks/add-nsx-t-routers/task.yml
+    params: *nsx-t-gen-params
+
+- name: standalone-config-nsx-t-extras
+  plan:
+  - aggregate:
+    - get: nsx-t-gen-pipeline
+    - get: nsxt-ansible
+      params: {globs: []}
+
+  - task: config-nsx-t-extras
+    file: nsx-t-gen-pipeline/tasks/config-nsx-t-extras/task.yml
+    params: *nsx-t-gen-params

@@ -1,0 +1,62 @@
+# This file contains variable values for internal use
+ovftool_bin_path: "/usr/bin"
+overlay_transport_zone: 'overlay-tz'
+overlay_host_switch: "hostswitch-overlay"
+vlan_transport_zone: 'vlan-tz'
+vlan_host_switch: "hostswitch-vlan"
+
+transportzones:
+- display_name: "{{overlay_transport_zone}}"
+  transport_type: "OVERLAY"
+  host_switch_name: "{{overlay_host_switch}}" # will create one with this name
+- display_name: "{{vlan_transport_zone}}"
+  transport_type: "VLAN"
+  host_switch_name: "{{vlan_host_switch}}"
+
+vtep_ip_pool_name: tep-ip-pool
+
+edge_uplink_prof: edge-single-uplink-prof
+host_uplink_prof: host-overlay-uplink-prof
+
+uplink_1_name: "uplink-1"
+uplink_2_name: "uplink-2"
+common_teaming_spec_for_esx:
+  active_list:
+  - uplink_name: "{{uplink_1_name}}"
+    uplink_type: PNIC
+  standby_list:
+  - uplink_name: "{{uplink_2_name}}"
+    uplink_type: PNIC
+  policy: FAILOVER_ORDER
+
+uplink_profiles:
+- display_name: "{{edge_uplink_prof}}"
+  description: "Edge Uplink Profile"
+  teaming:
+    active_list:
+    - uplink_name: "{{uplink_1_name}}"
+      uplink_type: PNIC
+    policy: FAILOVER_ORDER
+  transport_vlan: "{{hostvars['localhost'].edge_uplink_profile_vlan}}"
+- display_name: "{{host_uplink_prof}}"
+  description: "Host Overlay Profile"
+  teaming: "{{common_teaming_spec_for_esx}}"
+  transport_vlan: "{{hostvars['localhost'].esxi_uplink_profile_vlan}}"
+
+edge_cluster_name: "edge-cluster-1"
+
+vlan_logical_switch: "uplink-vlan-ls"
+vlan_logical_switch_vlan: 0
+t0_uplink_port_ip: 172.60.0.1
+t0_uplink_port_subnet: 24
+
+single_pnic_list:
+- device_name: "{{hostvars['localhost'].esx_available_vmnic[0]}}"
+  uplink_name: "{{uplink_1_name}}"
+
+extra_pnics: "{{ [] if hostvars['localhost'].esx_available_vmnic|length == 1 else [{'device_name': hostvars['localhost'].esx_available_vmnic[1], 'uplink_name': uplink_2_name }]}}"
+
+pnic_list: "{{single_pnic_list + extra_pnics}}"
+
+compute_manager_name: "vCenter-compute-manager"
+compute_manager_2_name: "vCenter-compute-manager_2"

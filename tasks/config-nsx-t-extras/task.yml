@@ -1,0 +1,30 @@
+---
+
+platform: linux
+
+image_resource:
+  type: docker-image
+  source: {repository: nsxedgegen/nsx-t-gen-worker}
+
+params:
+  NSX_T_INSTALLER:
+  NSX_T_MANAGER_FQDN:
+  NSX_T_MANAGER_HOST_NAME:
+  NSX_T_MANAGER_IP:
+  NSX_T_MANAGER_ADMIN_USER:
+  NSX_T_MANAGER_ROOT_PWD:
+  NSX_T_OVERLAY_TRANSPORT_ZONE:
+  NSX_T_PAS_NCP_CLUSTER_TAG:
+  NSX_T_T0ROUTER_SPEC:
+  NSX_T_T1ROUTER_LOGICAL_SWITCHES_SPEC:
+  NSX_T_HA_SWITCHING_PROFILE_SPEC:
+  NSX_T_CONTAINER_IP_BLOCK_SPEC:
+  NSX_T_EXTERNAL_IP_POOL_SPEC:
+  NSX_T_NAT_RULES_SPEC:
+  NSX_T_CSR_REQUEST_SPEC:
+  NSX_T_LBR_SPEC:
+
+inputs:
+  - name: nsx-t-gen-pipeline
+run:
+  path: nsx-t-gen-pipeline/tasks/config-nsx-t-extras/task.sh

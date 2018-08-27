@@ -1,0 +1,336 @@
+enable_ansible_debug: false # set value to true for verbose output from ansible
+
+# vCenter details to deploy the Mgmt OVAs (Mgr, Edge, Controller)
+vcenter_ip: 10.40.1.206
+vcenter_username: administrator@vsphere.local
+vcenter_password: "Admin!23"
+vcenter_datacenter: 1-folder-1080/1-datacenter-1080
+vcenter_cluster: 1-cluster-729
+vcenter_datastore: vdnetSharedStorage
+
+# OVA general network settings
+mgmt_portgroup: 'VM Network'
+dns_server: 10.13.12.2
+dns_domain: corp.local.io
+ntp_servers: 10.13.12.2
+default_gateway: 10.13.12.1
+netmask: 255.255.255.0
+# only NSX manager OVA is required
+nsx_image_webserver: "http://10.33.75.99:40001"
+ova_file_name: "nsx-unified-appliance-2.2.0.0.1.8968271.ova"
+ovftool_file_name: "VMware-ovftool-4.3.0-9158644-lin.x86_64.bundle"
+
+nsx_manager_ip: 10.40.0.20
+nsx_manager_username: admin
+nsx_manager_password: Admin!23Admin
+nsx_manager_assigned_hostname: "nsxt-manager-10" # Set as FQDN, will be used also as certificate common name
+nsx_manager_root_pwd: VMware1!    # Min 8 chars, upper, lower, number, special digit
+nsx_manager_deployment_size: small   # Recommended for real barebones demo, smallest setup
+nsx_manager_ssh_enabled: true
+
+compute_manager_username: "Administrator@vsphere.local"
+compute_manager_password: "Admin!23"
+
+edge_uplink_profile_vlan: 0 # For outbound uplink connection used by Edge
+esxi_uplink_profile_vlan: 20 # # For internal overlay connection used by Esxi hosts
+
+# Tunnel endpoint network ip pool
+# change pool_end based on # of members in the tep pool
+vtep_ip_pool_cidr: 192.168.213.0/24
+vtep_ip_pool_gateway: 192.168.213.1
+vtep_ip_pool_start: 192.168.213.10
+vtep_ip_pool_end: 192.168.213.200
+
+resource_reservation_off: true
+
+## Controllers
+controller_ips: 10.40.0.21
+controller_default_gateway: 10.40.1.253
+controller_ip_prefix_length: 23
+controller_hostname_prefix: controller # no spaces, Generated name: controller_1.corp.local.io
+controller_cli_password: "Admin!23Admin" # Min 8 chars, upper, lower, num, special char
+controller_root_password: "Admin!23Admin"
+controller_deployment_size: "SMALL"
+vc_datacenter_for_controller: 1-datacenter-1080
+vc_cluster_for_controller: 1-cluster-729
+vc_datastore_for_controller: vdnetSharedStorage
+vc_management_network_for_controller: "VM Network"
+controller_shared_secret: "Admin!23Admin"
+
+## Edge nodes
+edge_ips: 10.40.0.24 # comma separated ips, requires min 2 for HA
+edge_default_gateway: 10.40.1.253
+edge_ip_prefix_length: 23
+edge_hostname_prefix: nsx-t-edge
+edge_transport_node_prefix: edge-transp-node
+edge_cli_password: "Admin!23Admin"
+edge_root_password: "Admin!23Admin"
+edge_deployment_size: "SMALL"
+vc_datacenter_for_edge: 2-datacenter-1080
+vc_cluster_for_edge: 2-cluster-732
+vc_datastore_for_edge: vdnetSharedStorage
+vc_uplink_network_for_edge: "VM Network"
+vc_overlay_network_for_edge: "VM Network"
+vc_management_network_for_edge: "VM Network"
+
+# ESX hosts
+clusters_to_install_nsx: 2-cluster-732
+per_cluster_vlans: "0"
+esx_ips:
+esx_os_version: "6.5.0"
+esx_root_password: "ca$hc0w"
+esx_hostname_prefix: "esx-host"
+esx_available_vmnic: "vmnic1,vmnic3"
+
+# Tier 0 router
+tier0_router_name: "DefaultT0Router"
+tier0_uplink_port_ip: 172.60.0.1
+tier0_uplink_port_subnet: 24
+tier0_uplink_next_hop_ip: 10.13.12.1
+tier0_uplink_port_ip_2: 172.60.0.100
+tier0_ha_vip: 172.60.0.200
+
+# compute manager for the compute cluster (2nd vCenter)
+compute_manager_2_vcenter_ip: "null"
+compute_manager_2_username: "null"
+compute_manager_2_password: "null"
+
+############################
+# MP resource spec
+#############################
+
+nsx_t_t1router_logical_switches_spec: |
+  t1_routers:
+  # Add additional T1 Routers or collapse switches into same T1 Router as needed
+  # Comment off the following T1 Routers if there is no PAS
+  - name: T1-Router-PAS-Infra
+    switches:
+    - name: PAS-Infra
+      logical_switch_gw: 192.168.10.1 # Last octet should be 1 rather than 0
+      subnet_mask: 24
+
+  - name: T1-Router-PAS-ERT
+    switches:
+    - name: PAS-ERT
+      logical_switch_gw: 192.168.24.1 # Last octet should be 1 rather than 0
+      subnet_mask: 24
+    edge_cluster: true
+    advertise_lb_vip: true
+
+  - name: T1-Router-PAS-Services
+    switches:
+    - name: PAS-Services
+      logical_switch_gw: 192.168.28.1 # Last octet should be 1 rather than 0
+      subnet_mask: 24
+
+  - name: T1-Router-PAS-DynamicServices
+    switches:
+    - name: PAS-DynamicServices
+      logical_switch_gw: 192.168.30.1 # Last octet should be 1 rather than 0
+      subnet_mask: 24
+
+  # Comment off the following T1 Routers if there is no PKS
+  - name: T1-Router-PKS-Infra
+    switches:
+    - name: PKS-Infra
+      logical_switch_gw: 192.168.20.1 # Last octet should be 1 rather than 0
+      subnet_mask: 24
+
+  - name: T1Router-PKS-K8s-Clusters
+    switches:
+    - name: PKS-K8s-Clusters
+      logical_switch_gw: 192.168.40.1 # Last octet should be 1 rather than 0
+      subnet_mask: 24
+
+
+# Make sure the ncp/cluster tag matches the one defined on the T0 Router
+# Additional the ncp/ha tag should be set for HA Spoof guard profile
+nsx_t_ha_switching_profile_spec: |
+  ha_switching_profiles:
+  - name: HASwitchingProfile
+    tags:
+      ncp/cluster: 'pas1'  # Should match the top level ncp/cluster tag value
+      ncp/ha: 'true'       # Required for HA
+      testtag: 'testpas1'
+
+
+# Make sure the ncp/cluster tag matches the one defined on the T0 Router
+# Add additional container ip blocks as needed
+nsx_t_container_ip_block_spec: |
+  container_ip_blocks:
+  - name: container-ip-block
+    cidr: 10.4.0.0/16
+  - name: node-container-ip-block-pks-with-tag
+    cidr: 11.4.0.0/16
+  - name: pod-container-ip-block-pks-with-tag
+    cidr: 12.4.0.0/16
+
+# Make sure the ncp/cluster tag matches the one defined on the T0 Router for PAS
+# Make sure the ncp/shared tag is set to true for PKS
+# Additional the ncp/external tag should be set for external facing ip pool
+# Add additional exernal ip pools as needed
+# Change the cidr, gateway, nameserver, dns_domain as needed
+# The cidr, gateway, start/end ips should be reachable via static or bgp routing through T0 router
+nsx_t_external_ip_pool_spec: |
+  external_ip_pools:
+  - name: snat-vip-pool-for-pas
+    cidr: 10.208.40.0/24
+    start: 10.208.40.10 # Should not include gateway
+    end: 10.208.40.200  # Should not include gateway
+
+  - name: snat-vip-pool-for-pks
+    cidr: 10.208.50.0/24 # Should be a 0/24 or some valid cidr, matching the external exposed uplink
+    start: 10.208.50.10 # Should not include gateway
+    end: 10.208.50.200  # Should not include gateway
+
+# Specify NAT rules
+# Provide matching dnat and snat rule for specific vms by using ips for destination_network and translated_network that need to be exposed like Ops Mgr
+# Provide snat rules for outbound from either container or a vm by specifying the source_network (cidr) and translated network ip
+# Ingress into Ops Mgr: External IP of Ops Mgr -> DNAT -> translated into internal ip of Ops Mgr
+# Egress from Ops Mgr: internal ip of Ops Mgr -> SNAT -> translated into external IP of Ops Mgr
+# Ingress into PKS API Controller: External IP of controller -> DNAT -> translated into internal ip of controller
+# Egress from PKS API Controller: internal ip of controller -> SNAT -> translated into external IP of controller
+# Egress from SomeNetwork: cidr of network -> SNAT -> translated into some external IP
+nsx_t_nat_rules_spec: |
+  nat_rules:
+  # Sample entry for allowing inbound to PAS Ops manager - ingress
+  - t0_router: DefaultT0Router
+    nat_type: dnat
+    destination_network: 10.13.12.2   # External IP address for PAS opsmanager
+    translated_network: 192.168.10.2     # Internal IP of PAS Ops manager
+    rule_priority: 1024                  # Higher priority
+  # Sample entry for allowing outbound from PAS Ops Mgr to external - egress
+  - t0_router: DefaultT0Router
+    nat_type: snat
+    source_network: 192.168.10.2         # Internal IP of PAS opsmanager
+    translated_network: 10.13.12.2      # External IP address for PAS opsmanager
+    rule_priority: 1024                  # Higher priority
+  # Sample entry for PAS Infra network SNAT - egress
+  - t0_router: DefaultT0Router
+    nat_type: snat
+    source_network: 192.168.10.0/24      # PAS Infra network cidr
+    translated_network: 10.13.12.3      # SNAT External Address for PAS networks
+    rule_priority: 8000                  # Lower priority
+
+  # Sample entry for PAS ERT network SNAT - egress
+  - t0_router: DefaultT0Router
+    nat_type: snat
+    source_network: 192.168.24.0/24      # PAS ERT network cidr
+    translated_network: 10.13.12.3      # SNAT External Address for PAS networks
+    rule_priority: 8000                  # Lower priority
+
+  # Sample entry for PAS Services network SNAT - egress
+  - t0_router: DefaultT0Router
+    nat_type: snat
+    source_network: 192.168.28.0/24      # PAS Services network cidr
+    translated_network: 10.13.12.3      # SNAT External Address for PAS networks
+    rule_priority: 8001                  # Lower priority
+
+  # Sample entry for PAS Dynamic Services network SNAT - egress
+  - t0_router: DefaultT0Router
+    nat_type: snat
+    source_network: 192.168.30.0/24      # PAS Dynamic Services network cidr
+    translated_network: 10.13.12.3      # SNAT External Address for PAS networks
+    rule_priority: 8001                  # Lower priority
+
+  # Sample entry for PKS PKS-Infra network - egress
+  - t0_router: DefaultT0Router
+    nat_type: snat
+    source_network: 192.168.20.0/24      # PKS Infra network cidr
+    translated_network: 10.13.12.6       # SNAT External Address for PKS networks
+    rule_priority: 8001                  # Lower priority
+
+  # Sample entry for PKS PKS-Clusters network - egress
+  - t0_router: DefaultT0Router
+    nat_type: snat
+    source_network: 192.168.40.0/24      # PKS Clusters network cidr
+    translated_network: 10.13.12.6       # SNAT External Address for PKS networks
+    rule_priority: 8001                  # Lower priority
+
+  # Sample entry for allowing inbound to PKS Ops manager
+  - t0_router: DefaultT0Router
+    nat_type: dnat
+    destination_network: 10.13.12.5      # External IP address for PKS opsmanager
+    translated_network: 192.168.20.2     # Internal IP of PKS Ops manager
+    rule_priority: 1024                  # Higher priority
+  # Sample entry for allowing outbound from PKS Ops Mgr to external
+  - t0_router: DefaultT0Router
+    nat_type: snat
+    source_network: 192.168.20.2         # Internal IP of PAS opsmanager
+    translated_network: 10.13.12.5       # External IP address for PAS opsmanager
+    rule_priority: 1024                  # Higher priority
+
+  # Sample entry for allowing inbound to PKS Controller
+  - t0_router: DefaultT0Router
+    nat_type: dnat
+    destination_network: 10.13.12.7      # External IP address for PKS controller
+    translated_network: 192.168.20.4     # Internal IP of PKS Ops Controller
+    rule_priority: 1024                  # Higher priority
+  # Sample entry for allowing outbound from PKS Controller to external
+  - t0_router: DefaultT0Router
+    nat_type: snat
+    source_network: 192.168.20.4        # Internal IP of PKS controller
+    translated_network: 10.13.12.7      # External IP address for PKS controller
+    rule_priority: 1024                 # Higher priority
+
+nsx_t_csr_request_spec: |
+  csr_request:
+    #common_name not required - would use nsx_t_manager_host_name
+    org_name: Company            # EDIT
+    org_unit: net-integ          # EDIT
+    country: US                  # EDIT
+    state: CA                    # EDIT
+    city: SF                     # EDIT
+    key_size: 2048               # Valid values: 2048 or 3072
+    algorithm: RSA               # Valid values: RSA or DSA
+
+# LBR definition
+# By default, all the server pools would use Layer 4 - TCP pass through
+# No ssl termination or handling, uses default tcp active monitor & auto map for virtual server
+# Auto Map mode uses LB interface IP and ephemeral port.
+# In scenarios where both Clients and Pool Members are attached to the same Logical Router,
+# SNAT (Auto Map or IP List) must be used.
+
+# LBR Sizing guide
+# LB Size | Virtual Servers | Pool Members
+# small   |   10            |   30
+# medium  |  100            |  300
+# large   | 1000            | 3000
+
+# No. of LBs per edge based on size of edge
+# Edge Size | Small LBs| Medium LBs| Large LBs
+#
+# small     |    0     |   0       | 0
+# medium    |    1     |   0       | 0 # Recommended for running only PAS or PKS
+# large     |    4     |   1       | 1 # Recommended for running PAS + PKS
+# Bare metal - not handled here
+
+nsx_t_lbr_spec: |
+  loadbalancers:
+  # Sample entry for creating LBR for PAS ERT
+  - name: PAS-ERT-LBR
+    t1_router: T1-Router-PAS-ERT # Should match a previously declared T1 Router
+    size: small                  # Allowed sizes: small, medium, large
+    virtual_servers:
+    - name: goRouter443          # Unique name that signifies function being exposed
+      vip: 10.13.12.150          # Exposed VIP for LBR to listen on
+      port: 443
+      members:
+      - ip: 192.168.24.31        # Internal ip of GoRouter instance 1
+        port: 443
+      - ip: 192.168.24.32        # Internal ip of GoRouter instance 2
+        port: 443
+    - name: goRouter80
+      vip: 10.13.12.150
+      port: 80
+      members:
+      - ip: 192.168.24.31        # Internal ip of GoRouter instance 1
+        port: 80
+      - ip: 192.168.24.32        # Internal ip of GoRouter instance 2
+        port: 80
+    - name: sshProxy             # SSH Proxy exposed to outside
+      vip: 10.13.12.151
+      port: 2222                 # Port 2222 for ssh proxy
+      members:
+      - ip: 192.168.24.41        # Internal ip of Diego Brain where ssh proxy runs
+        port: 2222

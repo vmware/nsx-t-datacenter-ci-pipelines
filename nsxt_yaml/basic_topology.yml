@@ -1,0 +1,213 @@
+---
+- hosts: 127.0.0.1
+  connection: local
+  become: yes
+  vars_files:
+    - vars.yml
+  tasks:
+    - name: deploy NSX Manager OVA
+      nsxt_deploy_ova:
+        vcenter: "{{hostvars['localhost'].vcenter_ip}}"
+        vcenter_user: "{{hostvars['localhost'].vcenter_username}}"
+        vcenter_passwd: "{{hostvars['localhost'].vcenter_password}}"
+        datacenter: "{{hostvars['localhost'].vcenter_datacenter}}"
+        datastore: "{{hostvars['localhost'].vcenter_datastore}}"
+        portgroup: "{{hostvars['localhost'].mgmt_portgroup}}"
+        cluster: "{{hostvars['localhost'].vcenter_cluster}}"
+        vmname: "nsxt-manager"
+        hostname: "{{hostvars['localhost'].nsx_manager_assigned_hostname}}"
+        dns_server: "{{hostvars['localhost'].dns_server}}"
+        dns_domain: "{{hostvars['localhost'].dns_domain}}"
+        ntp_server: "{{hostvars['localhost'].ntp_servers}}"
+        gateway: "{{hostvars['localhost'].default_gateway}}"
+        ip_address: "{{hostvars['localhost'].nsx_manager_ip}}"
+        netmask: "{{hostvars['localhost'].netmask}}"
+        admin_password: "{{hostvars['localhost'].nsx_manager_password}}"
+        cli_password: "{{hostvars['localhost'].nsx_manager_password}}"
+        ovftool_path: "{{ovftool_bin_path}}"
+        path_to_ova: "{{hostvars['localhost'].nsx_image_webserver}}"
+        ova_file: "{{hostvars['localhost'].ova_file_name}}"
+        deployment_size: "{{hostvars['localhost'].nsx_manager_deployment_size}}"
+        role: "nsx-manager"
+        ssh_enabled: "{{hostvars['localhost'].nsx_manager_ssh_enabled}}"
+        allow_ssh_root_login: "{{hostvars['localhost'].nsx_manager_ssh_enabled}}"
+
+    - name: Check manager status
+      nsxt_manager_status:
+        hostname: "{{hostvars['localhost'].nsx_manager_ip}}"
+        username: "{{hostvars['localhost'].nsx_manager_username}}"
+        password: "{{hostvars['localhost'].nsx_manager_password}}"
+        validate_certs: False
+        wait_time: 50
+
+    - name: Wait 2 minutes before accessing NSX Manager API
+      pause: minutes=2
+
+    # this should've been enabled already
+    - name: Enable install-upgrade service
+      uri:
+        method: PUT
+        url: https://{{hostvars['localhost'].nsx_manager_ip}}/api/v1/node/services/install-upgrade
+        user: "{{hostvars['localhost'].nsx_manager_username}}"
+        password: "{{hostvars['localhost'].nsx_manager_password}}"
+        body:
+          service_name: "install-upgrade"
+          service_properties:
+            enabled: True
+        body_format: json
+        force_basic_auth: yes
+        validate_certs: no
+
+    - name: Get install-upgrade service status
+      uri:
+        method: GET
+        url: https://{{hostvars['localhost'].nsx_manager_ip}}/api/v1/node/services/install-upgrade/status
+        user: "{{hostvars['localhost'].nsx_manager_username}}"
+        password: "{{hostvars['localhost'].nsx_manager_password}}"
+        force_basic_auth: yes
+        validate_certs: no
+      register: iu_status
+
+    - name: Restart install-upgrade service if it's not running
+      uri:
+        method: POST
+        url: https://{{hostvars['localhost'].nsx_manager_ip}}/api/v1/node/services/install-upgrade?action=restart
+        user: "{{hostvars['localhost'].nsx_manager_username}}"
+        password: "{{hostvars['localhost'].nsx_manager_password}}"
+        force_basic_auth: yes
+        validate_certs: no
+      when: iu_status.json.runtime_state != "running"
+
+    - name: Deploy compute manager
+      nsxt_fabric_compute_managers:
+        hostname: "{{hostvars['localhost'].nsx_manager_ip}}"
+        username: "{{hostvars['localhost'].nsx_manager_username}}"
+        password: "{{hostvars['localhost'].nsx_manager_password}}"
+        validate_certs: False
+        display_name: "{{compute_manager_name}}"
+        server: "{{hostvars['localhost'].vcenter_ip}}" # vCenter IP
+        origin_type: vCenter
+        credential:
+          credential_type: UsernamePasswordLoginCredential
+          username: "{{hostvars['localhost'].compute_manager_username}}"
+          password: "{{hostvars['localhost'].compute_manager_password}}"
+        state: present
+      register: compute_manager
+
+    # TODO: change var names
+    - name: Deploy compute manager 2
+      nsxt_fabric_compute_managers:
+        hostname: "{{hostvars['localhost'].nsx_manager_ip}}"
+        username: "{{hostvars['localhost'].nsx_manager_username}}"
+        password: "{{hostvars['localhost'].nsx_manager_password}}"
+        validate_certs: False
+        display_name: "{{compute_manager_2_name}}"
+        server: "{{hostvars['localhost'].compute_manager_2_vcenter_ip}}"
+        origin_type: vCenter
+        credential:
+          credential_type: UsernamePasswordLoginCredential
+          username: "{{hostvars['localhost'].compute_manager_2_username}}"
+          password: "{{hostvars['localhost'].compute_manager_2_password}}"
+        state: present
+      register: compute_manager_2_compute_cluster
+      when:
+        - hostvars['localhost'].compute_manager_2_vcenter_ip is defined
+        - hostvars['localhost'].compute_manager_2_username is defined
+        - hostvars['localhost'].compute_manager_2_password is defined
+
+    - name: Install pyvmomi tools dependency
+      shell: "cd /tmp; git clone https://github.com/vmware/pyvmomi-community-samples.git; cp -r pyvmomi-community-samples/samples/tools /usr/local/lib/python2.7/dist-packages"
+      when:
+        - hostvars['localhost'].resource_reservation_off == "true"
+
+    - name: Turn off memory reservation for controllers and edge nodes and power them on
+      command: python turn_off_reservation.py --host {{hostvars['localhost'].vcenter_ip}} --user {{hostvars['localhost'].vcenter_username}} --password {{hostvars['localhost'].vcenter_password}} --vm_list {{hostvars[item].hostname}}
+      with_items:
+        - "{{groups['controllers']}}"
+        - "{{groups['edge_nodes']}}"
+      when:
+        - hostvars['localhost'].resource_reservation_off == "true"
+
+    - name: Deploy controller
+      nsxt_controllers:
+        hostname: "{{hostvars['localhost'].nsx_manager_ip}}"
+        username: "{{hostvars['localhost'].nsx_manager_username}}"
+        password: "{{hostvars['localhost'].nsx_manager_password}}"
+        validate_certs: False
+        deployment_requests:
+        - roles:
+          - CONTROLLER
+          form_factor: "{{hostvars[item].controller_deployment_size}}"
+          user_settings:
+            cli_password: "{{hostvars[item].controller_cli_password}}"
+            root_password: "{{hostvars[item].controller_root_password}}"
+          deployment_config:
+            placement_type: VsphereClusterNodeVMDeploymentConfig
+            vc_id: "{{compute_manager.id}}"
+            management_network_id: "{{hostvars[item].vc_management_network_for_controller}}"
+            hostname: "{{hostvars[item].hostname}}"
+            compute_id: "{{hostvars[item].vc_cluster_for_controller}}"
+            storage_id: "{{hostvars[item].vc_datastore_for_controller}}"
+            default_gateway_addresses:
+            - "{{hostvars[item].default_gateway}}"
+            management_port_subnets:
+            - ip_addresses:
+              - "{{hostvars[item].ip}}"
+              prefix_length: "{{hostvars[item].prefix_length}}"
+            enable_ssh: "{{hostvars['localhost'].nsx_manager_ssh_enabled}}"
+        clustering_config:
+          clustering_type: ControlClusteringConfig
+          shared_secret: "{{hostvars[item].controller_shared_secret}}"
+          join_to_existing_cluster: false
+        state: present
+      with_items: "{{groups['controllers']}}"
+      register: controller_response
+
+    - name: Install ping
+      apt:
+        name: iputils-ping
+        state: present
+
+    - name: Wait 120 seconds for controllers to become reachable
+      shell: I=0; while ! ping -c 1 -W 2 {{hostvars[item].ip}}; do I=$(( I + 1 )); [ $I -gt 60 ] && exit 1; done; exit 0
+      with_items: "{{groups['controllers']}}"
+
+    - name: Add Edge VM
+      nsxt_fabric_nodes:
+        hostname: "{{hostvars['localhost'].nsx_manager_ip}}"
+        username: "{{hostvars['localhost'].nsx_manager_username}}"
+        password: "{{hostvars['localhost'].nsx_manager_password}}"
+        validate_certs: False
+        resource_type: "EdgeNode"
+        display_name: "{{hostvars[item].hostname}}"
+        ip_addresses:
+          - "{{hostvars[item].ip}}"
+        deployment_config:
+          form_factor: "{{hostvars[item].edge_deployment_size}}"
+          node_user_settings:
+            cli_password: "{{hostvars[item].edge_cli_password}}"
+            root_password: "{{hostvars[item].edge_root_password}}"
+          vm_deployment_config:
+            placement_type: VsphereDeploymentConfig
+            vc_id: "{{compute_manager.id}}"
+            data_network_ids:
+            - "{{hostvars[item].vc_uplink_network_for_edge}}"
+            - "{{hostvars[item].vc_overlay_network_for_edge}}"
+            - "{{hostvars[item].vc_management_network_for_edge}}"
+            management_network_id: "{{hostvars[item].vc_management_network_for_edge}}"
+            hostname: "{{hostvars[item].hostname}}"
+            compute_id: "{{hostvars[item].vc_cluster_for_edge}}"
+            storage_id: "{{hostvars[item].vc_datastore_for_edge}}"
+            default_gateway_addresses:
+            - "{{hostvars[item].default_gateway}}"
+            management_port_subnets:
+            - ip_addresses:
+              - "{{hostvars[item].ip}}"
+              prefix_length: "{{hostvars[item].prefix_length}}"
+            enable_ssh: "{{hostvars['localhost'].nsx_manager_ssh_enabled}}"
+        state: "present"
+      with_items: "{{groups['edge_nodes']}}"
+
+    - name: Wait 120 seconds for edge nodes to become reachable
+      shell: I=0; while ! ping -c 1 -W 2 {{hostvars[item].ip}}; do I=$(( I + 1 )); [ $I -gt 60 ] && exit 1; done; exit 0
+      with_items: "{{groups['edge_nodes']}}"

@@ -1,0 +1,14 @@
+---
+
+platform: linux
+
+image_resource:
+  type: docker-image
+  source: {repository: nsxedgegen/nsx-t-gen-worker}
+
+inputs:
+  - name: nsx-t-gen-pipeline
+  - name: nsxt-ansible
+
+run:
+  path: nsx-t-gen-pipeline/tasks/add-nsx-t-routers/task.sh
