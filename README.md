@@ -24,17 +24,9 @@ Set CONCOURSE_URL to http://<host_ip>:8080 (host_ip is the IP address of the pri
 
 Browse to the Concourse pipeline: http://<CONCOURSE_URL>/teams/main/pipelines/install-nsx-t/ (example: http://10.85.99.130:8080/teams/main/pipelines/install-nsx-t/) and click on the plus on the upper right corner to trigger a build to install NSX-T.
 
-
-## Documentation
-
-## Releases & Major Branches
-
 ## Contributing
 
-The nsx-t-datacenter-ci-pipelines project team welcomes contributions from the community. If you wish to contribute code and you have not
-signed our contributor license agreement (CLA), our bot will update the issue when you open a Pull Request. For any
-questions about the CLA process, please refer to our [FAQ](https://cla.vmware.com/faq). For more detailed information,
-refer to [CONTRIBUTING.md](CONTRIBUTING.md).
+The nsx-t-datacenter-ci-pipelines project team welcomes contributions from the community. Before you start working with nsx-t-datacenter-ci-pipelines, please read our [Developer Certificate of Origin](https://cla.vmware.com/dco). All contributions to this repository must be signed as described on that page. Your signature certifies that you wrote the patch or have the right to pass it on as an open-source patch. For more detailed information, refer to [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## License
 NSX-T-Data-Center-CI-Pipeline-with-Concourse
