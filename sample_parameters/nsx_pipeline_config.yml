@@ -17,8 +17,6 @@ default_gateway: 10.13.12.1
 netmask: 255.255.255.0
 # only NSX manager OVA is required
 nsx_image_webserver: "http://10.33.75.99:40001"
-ova_file_name: "nsx-unified-appliance-2.2.0.0.1.8968271.ova"
-ovftool_file_name: "VMware-ovftool-4.3.0-9158644-lin.x86_64.bundle"
 
 nsx_manager_ip: 10.40.0.20
 nsx_manager_username: admin

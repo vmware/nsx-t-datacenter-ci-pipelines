@@ -127,14 +127,12 @@ resources:
     uri: https://github.com/vmware/nsx-t-datacenter-ci-pipelines.git
     params:
       disable_git_lfs: true
-    private_key: ((ansible_for_nsxt_key))
     branch: master
 
 - name: nsxt-ansible
   type: git
   source:
     uri: https://github.com/vmware/ansible-for-nsxt.git
-    #uri: git@github.com:vmware/ansible-for-nsxt.git
     branch: master
 
 # Download NSX-T 2.1 bits from

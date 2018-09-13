@@ -134,7 +134,7 @@
         username: "{{hostvars['localhost'].nsx_manager_username}}"
         password: "{{hostvars['localhost'].nsx_manager_password}}"
         validate_certs: False
-        display_name: CC_fabric_template
+        display_name: "{{item}}-fabric_template"
         compute_manager_name: "{{compute_manager_name}}"
         cluster_name: "{{item}}"
         auto_install_nsx: True
