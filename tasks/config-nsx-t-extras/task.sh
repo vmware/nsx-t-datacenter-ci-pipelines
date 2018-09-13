@@ -9,8 +9,6 @@ export PIPELINE_DIR=$(cd $TASKS_DIR/../../ && pwd)
 export FUNCTIONS_DIR=$(cd $PIPELINE_DIR/functions && pwd)
 export SCRIPT_DIR=$(dirname $0)
 
-source $FUNCTIONS_DIR/check_null_variables.sh
-
 python $TASKS_DIR/nsx_t_gen.py
 
 STATUS=$?

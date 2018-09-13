@@ -11,11 +11,7 @@ export FUNCTIONS_DIR=$(cd $PIPELINE_DIR/functions && pwd)
 export OVA_ISO_PATH='/root/ISOs/CHGA'
 
 source $FUNCTIONS_DIR/copy_ovas.sh
-source $FUNCTIONS_DIR/create_ansible_cfg.sh
-source $FUNCTIONS_DIR/create_answerfile.sh
 source $FUNCTIONS_DIR/create_hosts.sh
-source $FUNCTIONS_DIR/create_extra_yaml_args.sh
-source $FUNCTIONS_DIR/check_null_variables.sh
 
 # Default installer name to be used for tags
 if [ "$NSX_T_INSTALLER" == "" ]; then
