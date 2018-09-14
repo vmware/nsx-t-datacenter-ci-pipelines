@@ -13,12 +13,21 @@ The Concourse pipeline performs the following jobs:
 
 ## Try it out
 ```
-mkdir -p /home/concourse /home/static_dependency
+wget https://github.com/vmware/nsx-t-datacenter-ci-pipelines/raw/master/docker_image/nsx-t-install-09122018.tar -O nsx-t-install.tar
+docker load -i nsx-t-install.tar
+mkdir -p /home/concourse
 ```
-Create nsx_pipeline_config.yml based on the sample config file https://github.com/vmware/nsx-t-datacenter-ci-pipelines/blob/master/pipelines/nsx-t-install.yml, and place it under /home/concourse.
+Create nsx_pipeline_config.yml based on the sample config file https://github.com/vmware/nsx-t-datacenter-ci-pipelines/blob/master/sample_parameters/nsx_pipeline_config.yml, and place it under /home/concourse.
 ```
-docker pull <nsx-t-install-image>
-docker run --name nsx-t-install -d -v /var/run/docker.sock:/var/run/docker.sock -v /home/concourse:/home/concourse -e CONCOURSE_URL="http://10.33.75.99:8080" -e EXTERNAL_DNS="10.33.38.1" -e IMAGE_WEBSERVER_PORT=40001 nsx-t-install
+docker run --name nsx-t-install -d \
+  -v /var/run/docker.sock:/var/run/docker.sock \
+  -v /home/concourse:/home/concourse \
+  -e CONCOURSE_URL="http://10.33.75.99:8080" \
+  -e EXTERNAL_DNS="10.33.38.1" \
+  -e IMAGE_WEBSERVER_PORT=40001 \
+  -e VMWARE_USER='<myvmware_user_email>' \
+  -e VMWARE_PASSWORD='<myvmware_password>' \
+  nsx-t-install
 ```
 Set CONCOURSE_URL to http://<host_ip>:8080 (host_ip is the IP address of the primary NIC of the VM running the container (example: 10.85.99.130); it is not the loopback address. Set EXTERNAL_DNS to the DNS server (example: 8.8.8.8), and  IMAGE_WEBSERVER_PORT to the port number provided in the  nsx_pipeline_config.yml parameter nsx_image_webserver (recommendation: 40001).
 
