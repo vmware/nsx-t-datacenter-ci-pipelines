@@ -1,0 +1,97 @@
+enable_ansible_debug: false # set value to true for verbose output from ansible
+
+# format: "http://<jumphost_ip>:40001"
+nsx_image_webserver: "http://192.168.110.11:40001"
+
+# vCenter to deploy the NSX manager
+vcenter_ip: 192.168.110.22
+vcenter_username: administrator@corp.local
+vcenter_password: "VMware1!"
+vcenter_datacenter: RegionA01
+vcenter_cluster: RegionA01-MGMT      #management cluster
+vcenter_datastore: iscsi
+
+# NSX manager general network settings
+mgmt_portgroup: 'ESXi-RegionA01-vDS-COMP'
+dns_server: 192.168.110.10
+dns_domain: corp.local.io
+ntp_servers: time.vmware.com
+default_gateway: 192.168.110.1
+netmask: 255.255.255.0
+
+nsx_manager_ip: 192.168.110.33
+nsx_manager_username: admin
+nsx_manager_password: Admin!23Admin
+nsx_manager_assigned_hostname: "nsxt-manager-10" # this hostname+dns_domain will be FQDN
+nsx_manager_root_pwd: VMware1!    # Min 8 chars, upper, lower, number, special digit
+nsx_manager_deployment_size: small   # Recommended for real barebones demo, smallest setup
+nsx_manager_ssh_enabled: true
+resource_reservation_off: true
+
+# Compute manager credentials should be the same as above vCenter's if
+# controllers and edges are to be on the same vCenter
+compute_manager_username: "Administrator@vsphere.local"
+compute_manager_password: "VMware1!"
+# compute manager for the compute cluster (2nd vCenter)
+compute_manager_2_vcenter_ip: "null"
+compute_manager_2_username: "null"
+compute_manager_2_password: "null"
+
+edge_uplink_profile_vlan: 0 # For outbound uplink connection used by Edge, usually keep as 0
+esxi_uplink_profile_vlan: 0 # For internal overlay connection used by Esxi hosts, usually trasnport VLAN ID
+
+# Virtual Tunnel Endpoint network ip pool
+vtep_ip_pool_cidr: 192.168.213.0/24
+vtep_ip_pool_gateway: 192.168.213.1
+vtep_ip_pool_start: 192.168.213.10
+vtep_ip_pool_end: 192.168.213.200
+
+# Tier 0 router
+tier0_router_name: DefaultT0Router
+tier0_uplink_port_ip: 192.168.100.4
+tier0_uplink_port_subnet: 24
+tier0_uplink_next_hop_ip: 192.168.100.1
+tier0_uplink_port_ip_2: 192.168.100.5
+tier0_ha_vip: 192.168.100.3
+
+## Controllers
+controller_ips: 192.168.110.34 #comma separated based on number of required controllers
+controller_default_gateway: 192.168.110.1
+controller_ip_prefix_length: 24
+controller_hostname_prefix: controller # Generated hostname: controller_1.corp.local.io
+controller_cli_password: "VMware1!" # Min 8 chars, upper, lower, num, special char
+controller_root_password: "VMware1!"
+controller_deployment_size: "SMALL"
+vc_datacenter_for_controller: RegionA01
+vc_cluster_for_controller: RegionA01-MGMT
+vc_datastore_for_controller: iscsi
+vc_management_network_for_controller: "ESXi-RegionA01-vDS-COMP"
+controller_shared_secret: "VMware1!VMware1!"
+
+## Edge nodes
+edge_ips: 192.168.110.37,192.168.110.38    #comma separated based in number of required edges
+edge_default_gateway: 192.168.110.1
+edge_ip_prefix_length: 24
+edge_hostname_prefix: nsx-t-edge
+edge_transport_node_prefix: edge-transp-node
+edge_cli_password: "VMware1!"
+edge_root_password: "VMware1!"
+edge_deployment_size: "large" #Large recommended for PKS deployments
+vc_datacenter_for_edge: RegionA01
+vc_cluster_for_edge: RegionA01-MGMT
+vc_datastore_for_edge: iscsi
+vc_uplink_network_for_edge: "ESXi-RegionA01-vDS-COMP"
+vc_overlay_network_for_edge: "VM-RegionA01-vDS-COMP"
+vc_management_network_for_edge: "ESXi-RegionA01-vDS-COMP"
+
+## ESX hosts
+#Intsll vSphere clusters automatically
+clusters_to_install_nsx: RegionA01-MGMT,RegionA01-K8s    #Comma seprated
+per_cluster_vlans: 0,0  #Comma seprated, order of VLANs applied same as order of clusters
+
+esx_ips: "" # additional esx hosts, if any, to be individually installed
+esx_os_version: "6.5.0"
+esx_root_password: "ca$hc0w"
+esx_hostname_prefix: "esx-host"
+
+esx_available_vmnic: "vmnic1" # comma separated physical NICs, applies to both cluster installation or ESXi installation
