@@ -1,0 +1,62 @@
+# Original source: https://github.com/concourse/concourse-docker
+# Update or sync up with latest version
+# Has additional flags for Web Proxy and DNS settings
+
+version: '3'
+
+services:
+  concourse-db:
+    image: postgres
+    environment:
+    - POSTGRES_DB=concourse
+    - POSTGRES_PASSWORD=concourse_pass
+    - POSTGRES_USER=concourse_user
+    - PGDATA=/database
+
+  concourse-web:
+    image: concourse/concourse
+    command: web
+    links: [concourse-db]
+    depends_on: [concourse-db]
+    ports: ["8080:8080"] # EDIT if necessary
+    volumes: ["./keys/web:/concourse-keys"]
+    environment:
+    - CONCOURSE_POSTGRES_HOST=concourse-db
+    - CONCOURSE_POSTGRES_USER=concourse_user
+    - CONCOURSE_POSTGRES_PASSWORD=concourse_pass
+    - CONCOURSE_POSTGRES_DATABASE=concourse
+    - CONCOURSE_EXTERNAL_URL=<REQUIRED> # EDIT ME
+    - CONCOURSE_BASIC_AUTH_USERNAME=concourse
+    - CONCOURSE_BASIC_AUTH_PASSWORD=concourse
+    - CONCOURSE_NO_REALLY_I_DONT_WANT_ANY_AUTH
+    - CONCOURSE_GARDEN_DNS_PROXY_ENABLE=true
+    - CONCOURSE_WORKER_GARDEN_DNS_PROXY_ENABLE=true
+
+# Edit dns server for CONCOURSE_GARDEN_DNS_SERVER
+# Edit the no_proxy to your env to allow direct access
+# like the webserver hosting the ova bits.
+# Ensure there are no quotes or spaces in the values
+    
+  concourse-worker:
+    image: concourse/concourse
+    command: worker
+    privileged: true
+    links: [concourse-web]
+    depends_on: [concourse-web]
+    volumes:
+    - "./keys/worker:/concourse-keys"
+    environment:
+    - CONCOURSE_TSA_HOST=concourse-web:2222
+    - CONCOURSE_GARDEN_NETWORK
+    - CONCOURSE_GARDEN_DNS_PROXY_ENABLE=true
+    - CONCOURSE_WORKER_GARDEN_DNS_PROXY_ENABLE=true
+    - CONCOURSE_GARDEN_DNS_SERVER=<REQUIRED> # EDIT ME
+    # Fill details below if env uses a web proxy
+    # Ensure there are no quotes or spaces in the values
+    - http_proxy_url=<REQUIRED> # EDIT ME - sample: http://192.168.10.5:3128/
+    - https_proxy_url=<REQUIRED> # EDIT ME - sample: http://192.168.10.5:3128/
+    - no_proxy=<REQUIRED> # EDIT ME - sample: localhost,127.0.0.1,WEBSERVER-IP,8.8.8.8,10.193.99.2
+    - HTTP_PROXY=<REQUIRED> # EDIT ME - sample: http://192.168.10.5:3128/
+    - HTTPS_PROXY=<REQUIRED> # EDIT ME - sample: http://192.168.10.5:3128/
+    - NO_PROXY=<REQUIRED> # EDIT ME - sample: localhost,127.0.0.1,WEBSERVER-IP,8.8.8.8,10.193.99.2
+

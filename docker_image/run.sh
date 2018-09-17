@@ -64,7 +64,7 @@ git clone https://github.com/vmware/nsx-t-datacenter-ci-pipelines.git
 concourse_docker_dir=${ROOT_WORK_DIR}/concourse-docker
 pipeline_dir=${ROOT_WORK_DIR}/nsx-t-datacenter-ci-pipelines
 cp ${concourse_docker_dir}/generate-keys.sh $BIND_MOUNT_DIR
-cp ${pipeline_dir}/docs/docker-compose.yml $BIND_MOUNT_DIR
+cp ${pipeline_dir}/docker_compose/docker-compose.yml $BIND_MOUNT_DIR
 
 cd $BIND_MOUNT_DIR
 ./generate-keys.sh
