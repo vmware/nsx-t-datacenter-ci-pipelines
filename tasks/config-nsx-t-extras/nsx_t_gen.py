@@ -601,9 +601,9 @@ def list_certs():
 
 def generate_self_signed_cert():
 
-  nsx_t_manager_fqdn = os.getenv('NSX_T_MANAGER_FQDN', '')
-  if nsx_t_manager_fqdn is None or nsx_t_manager_fqdn is '':
-    nsx_t_manager_fqdn = os.getenv('nsx_manager_assigned_hostname_int')
+  nsx_t_manager_fqdn = '{}.{}'.format(
+    os.getenv('nsx_manager_assigned_hostname_int'),
+    os.getenv('dns_domain_int'))
 
   if nsx_t_manager_fqdn is None or nsx_t_manager_fqdn is '':
     print('Value not set for the NSX_T_MANAGER_HOST_NAME, cannot create self-signed cert')
