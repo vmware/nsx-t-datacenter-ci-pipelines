@@ -12,12 +12,13 @@ The Concourse pipeline performs the following jobs:
 3. Create NSX logical resources to make the environment PAS/PKS deployment ready.
 
 ## Try it out
+On a Ubuntu VM with at least ~20GB of space,
 ```
 wget https://github.com/vmware/nsx-t-datacenter-ci-pipelines/raw/master/docker_image/nsx-t-install-09122018.tar -O nsx-t-install.tar
 docker load -i nsx-t-install.tar
 mkdir -p /home/concourse
 ```
-Create nsx_pipeline_config.yml based on the sample config file https://github.com/vmware/nsx-t-datacenter-ci-pipelines/blob/master/sample_parameters/nsx_pipeline_config.yml, and place it under /home/concourse.
+Create nsx_pipeline_config.yml based on a sample config file, e.g. https://github.com/vmware/nsx-t-datacenter-ci-pipelines/blob/master/sample_parameters/PAS_only/nsx_pipeline_config.yml for PAS environment, and place it under /home/concourse.
 ```
 docker run --name nsx-t-install -d \
   -v /var/run/docker.sock:/var/run/docker.sock \
@@ -29,7 +30,7 @@ docker run --name nsx-t-install -d \
   -e VMWARE_PASSWORD='<myvmware_password>' \
   nsx-t-install
 ```
-Set CONCOURSE_URL to http://<host_ip>:8080 (host_ip is the IP address of the primary NIC of the VM running the container (example: 10.85.99.130); it is not the loopback address. Set EXTERNAL_DNS to the DNS server (example: 8.8.8.8), and  IMAGE_WEBSERVER_PORT to the port number provided in the  nsx_pipeline_config.yml parameter nsx_image_webserver (recommendation: 40001).
+Set CONCOURSE_URL to http://<host_ip>:8080 (host_ip is the IP address of the primary NIC of the VM running the container (example: 10.85.99.130); it is not the loopback address. Set EXTERNAL_DNS to the DNS server (it should be able to resolve the vCenter hostname, and public names e.g. github.com), and  IMAGE_WEBSERVER_PORT to the port number provided in the  nsx_pipeline_config.yml parameter nsx_image_webserver (recommendation: 40001).
 
 Browse to the Concourse pipeline: http://<CONCOURSE_URL>/teams/main/pipelines/install-nsx-t/ (example: http://10.85.99.130:8080/teams/main/pipelines/install-nsx-t/) and click on the plus on the upper right corner to trigger a build to install NSX-T.
 
