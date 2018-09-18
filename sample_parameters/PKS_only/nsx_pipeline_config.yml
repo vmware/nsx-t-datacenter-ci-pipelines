@@ -2,6 +2,8 @@ enable_ansible_debug: false # set value to true for verbose output from ansible
 
 # format: "http://<jumphost_ip>:40001"
 nsx_image_webserver: "http://192.168.110.11:40001"
+#ova_file_name: "nsx-unified-appliance-2.2.0.0.0.8680778.ova" #Uncomment this if downloaded file manually and placed under /home/concourse
+#ovftool_file_name: "VMware-ovftool-4.2.0-5965791-lin.x86_64.bundle"   #Uncomment this if downloaded file manually and placed under /home/concourse
 
 # vCenter to deploy the NSX manager
 vcenter_ip: 192.168.110.22
