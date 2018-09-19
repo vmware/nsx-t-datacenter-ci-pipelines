@@ -32,6 +32,8 @@ docker run --name nsx-t-install -d \
 ```
 Set CONCOURSE_URL to http://<host_ip>:8080 (host_ip is the IP address of the primary NIC of the VM running the container (example: 10.85.99.130); it is not the loopback address. Set EXTERNAL_DNS to the DNS server (it should be able to resolve the vCenter hostname, and public names e.g. github.com), and  IMAGE_WEBSERVER_PORT to the port number provided in the  nsx_pipeline_config.yml parameter nsx_image_webserver (recommendation: 40001).
 
+The above command will automatically download the ovftool (e.g. VMware-ovftool-4.3.0-xxxxxxx-lin.x86_64.bundle) and NSX OVA (nsx-unified-appliance-2.2.0.0.0.xxxxxxx.ova) files from myvmware.com. If you have already downloaded the two files manually, place them under /home/concourse, and run above command with VMWARE_USER and VMWARE_PASSWORD skipped.
+
 Browse to the Concourse pipeline: http://<CONCOURSE_URL>/teams/main/pipelines/install-nsx-t/ (example: http://10.85.99.130:8080/teams/main/pipelines/install-nsx-t/) and click on the plus on the upper right corner to trigger a build to install NSX-T.
 
 ## Contributing
