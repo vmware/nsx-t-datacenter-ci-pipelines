@@ -86,6 +86,8 @@ if [ $nsx_mgr_up_status -ne 200 ]; then
 fi
 
 cp ${PIPELINE_DIR}/tasks/install-nsx-t/turn_off_reservation.py ./
+cp ${PIPELINE_DIR}/tasks/config-nsx-t-extras/*.py ./
+
 ansible-playbook $DEBUG -i hosts.out basic_topology.yml
 STATUS=$?
 
