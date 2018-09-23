@@ -15,7 +15,7 @@
         portgroup: "{{hostvars['localhost'].mgmt_portgroup}}"
         cluster: "{{hostvars['localhost'].vcenter_cluster}}"
         vmname: "nsxt-manager"
-        hostname: "{{hostvars['localhost'].nsx_manager_assigned_hostname}}"
+        hostname: "{{hostvars['localhost'].nsx_manager_assigned_hostname}}.{{hostvars['localhost'].dns_domain}}"
         dns_server: "{{hostvars['localhost'].dns_server}}"
         dns_domain: "{{hostvars['localhost'].dns_domain}}"
         ntp_server: "{{hostvars['localhost'].ntp_servers}}"

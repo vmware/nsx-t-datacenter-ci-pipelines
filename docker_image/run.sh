@@ -6,6 +6,7 @@
 # VMWARE_USER
 # VMWARE_PASSWORD
 # NSXT_VERSION
+# PIPELINE_BRANCH
 
 ROOT_WORK_DIR="/home/workspace"
 BIND_MOUNT_DIR="/home/concourse"
@@ -49,9 +50,15 @@ if [[ $ova_file_name == "" ]] || [[ $ovftool_file_name == "" ]]; then
 	set +e
 fi
 
+nsx_t_pipeline_branch=master
+if [[ $PIPELINE_BRANCH != "" ]]; then
+	nsx_t_pipeline_branch=$PIPELINE_BRANCH
+fi
+
 pipeline_internal_config="pipeline_config_internal.yml"
 echo "ovftool_file_name: $ovftool_file_name" > $pipeline_internal_config
 echo "ova_file_name: $ova_file_name" >> $pipeline_internal_config
+echo "nsx_t_pipeline_branch: $nsx_t_pipeline_branch" >> $pipeline_internal_config
 
 # start a web server to host static files such as ovftool and NSX manager OVA
 docker run --name nginx-server -v ${BIND_MOUNT_DIR}:/usr/share/nginx/html:ro -p ${IMAGE_WEBSERVER_PORT}:80 -d nginx

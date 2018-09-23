@@ -108,10 +108,6 @@ groups:
   jobs:
   - standalone-config-nsx-t-extras
 
-# - name: cleanup
-#   jobs:
-#   - uninstall-nsx-t
-
 resource_types:
 - name: file-url
   type: docker-image
@@ -127,7 +123,7 @@ resources:
     uri: https://github.com/vmware/nsx-t-datacenter-ci-pipelines.git
     params:
       disable_git_lfs: true
-    branch: master
+    branch: ((nsx_t_pipeline_branch))
 
 - name: nsxt-ansible
   type: git
@@ -135,9 +131,6 @@ resources:
     uri: https://github.com/vmware/ansible-for-nsxt.git
     branch: master
 
-# Download NSX-T 2.1 bits from
-# https://my.vmware.com/group/vmware/details?downloadGroup=NSX-T-210&productId=673
-# Download from https://my.vmware.com/group/vmware/details?productId=614&downloadGroup=OVFTOOL420#
 - name: ovftool
   type: file-url
   source:
