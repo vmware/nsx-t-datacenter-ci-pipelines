@@ -1,6 +1,5 @@
  
-## For the full documentation see the wiki page
-See the wiki: https://github.com/vmware/nsx-t-datacenter-ci-pipelines/wiki
+
 
 # nsx-t-datacenter-ci-pipelines
 This repository provides an easy-to-use automation framework that installs and configures NSX-T on vCenter clusters where PKS and/or PAS can be deployed.
@@ -12,6 +11,9 @@ The Concourse pipeline performs the following jobs:
 1. Deploy NSX manager, controllers and edges;
 2. Convert hosts from vCenter clusters specified by user to NSX transport nodes;
 3. Create NSX logical resources to make the environment PAS/PKS deployment ready.
+
+## For the full documentation see the wiki page
+See the wiki: https://github.com/vmware/nsx-t-datacenter-ci-pipelines/wiki
 
 ## Try it out
 On a Ubuntu VM with at least ~20GB of space,
