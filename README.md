@@ -1,4 +1,6 @@
-
+ 
+## For the full documentation see the wiki page
+See the wiki: https://github.com/vmware/nsx-t-datacenter-ci-pipelines/wiki
 
 # nsx-t-datacenter-ci-pipelines
 This repository provides an easy-to-use automation framework that installs and configures NSX-T on vCenter clusters where PKS and/or PAS can be deployed.
