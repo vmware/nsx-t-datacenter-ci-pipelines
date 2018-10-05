@@ -40,8 +40,7 @@ The above command will automatically download the ovftool (e.g. VMware-ovftool-4
 
 Browse to the Concourse pipeline: http://<CONCOURSE_URL>/teams/main/pipelines/install-nsx-t/ (example: http://10.85.99.130:8080/teams/main/pipelines/install-nsx-t/) and click on the plus on the upper right corner to trigger a build to install NSX-T.
 
-## Documentation
-See the wiki: https://github.com/vmware/nsx-t-datacenter-ci-pipelines/wiki
+Check out the [Troubleshooting Guide](https://github.com/vmware/nsx-t-datacenter-ci-pipelines/wiki/Troubleshooting) for troubleshooting tips.
 
 ## Contributing
 
