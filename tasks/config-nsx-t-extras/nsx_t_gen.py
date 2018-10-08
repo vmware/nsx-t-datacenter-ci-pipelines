@@ -1,3 +1,4 @@
+import argparse
 import os
 import json
 import yaml
@@ -601,38 +602,44 @@ def list_certs():
 
 def generate_self_signed_cert():
 
-  nsx_t_manager_fqdn = '{}.{}'.format(
+    nsx_t_manager_fqdn = '{}.{}'.format(
     os.getenv('nsx_manager_assigned_hostname_int'),
     os.getenv('dns_domain_int'))
 
-  if nsx_t_manager_fqdn is None or nsx_t_manager_fqdn is '':
-    print('Value not set for the NSX_T_MANAGER_HOST_NAME, cannot create self-signed cert')
-    return
+    if nsx_t_manager_fqdn is None or nsx_t_manager_fqdn is '':
+        print('Value not set for the NSX_T_MANAGER_HOST_NAME, cannot create self-signed cert')
+        return
 
-  csr_request_spec = os.getenv('nsx_t_csr_request_spec_int', '').strip()
-  if csr_request_spec == ''  or csr_request_spec == 'null' :
-    return
+    csr_request_spec = os.getenv('nsx_t_csr_request_spec_int', '').strip()
+    if csr_request_spec == ''  or csr_request_spec == 'null' :
+        return
 
-  csr_request = yaml.load(csr_request_spec)['csr_request']
-  if csr_request is None:
-    print('No valid yaml payload set for the NSX_T_CSR_REQUEST_SPEC, ignoring CSR self-signed cert section!')
-    return
+    csr_request = yaml.load(csr_request_spec)['csr_request']
+    if csr_request is None:
+        print('No valid yaml payload set for the NSX_T_CSR_REQUEST_SPEC, ignoring CSR self-signed cert section!')
+        return
 
-  api_endpoint = TRUST_MGMT_CSRS_ENDPOINT
-  existing_csrs_response = client.get(api_endpoint).json()
-  # if existing_csrs_response['result_count'] > 0:
-  #   print('Error! CSR already exists!!,\n\t count of csrs:{}'.format( existing_csrs_response['result_count']))
-  #   for csr_entry in existing_csrs_response['results']:
-  #     print('\t CSR Entry: {}'.format(csr_entry))
-  #   return
+    api_endpoint = TRUST_MGMT_CSRS_ENDPOINT
+    existing_csrs_response = client.get(api_endpoint).json()
 
-  #tokens = csr_request['common_name'].split('.')
-  tokens = nsx_t_manager_fqdn.split('.')
-  if len(tokens) < 3:
-    print('Error!! CSR common name is not a full qualified domain name (provided as nsx mgr FQDN): {}!!'.format(nsx_t_manager_fqdn))
-    exit(-1)
+    def does_comman_name_match(attr_list):
+        for attr in attr_list:
+            if attr.get('key') == 'CN' and attr.get('value') == nsx_t_manager_fqdn:
+                return True
+        return False
 
-  payload = {
+    for csr_resource in existing_csrs_response.get('results', []):
+        attr_list = csr_resource.get('subject', {}).get('attributes', [])
+        if does_comman_name_match(attr_list):
+            print('CSR with NSX manager FQDN %s already exists' % nsx_t_manager_fqdn)
+            return
+
+    tokens = nsx_t_manager_fqdn.split('.')
+    if len(tokens) < 3:
+        print('Error!! CSR common name is not a full qualified domain name (provided as nsx mgr FQDN): {}!!'.format(nsx_t_manager_fqdn))
+        exit(-1)
+
+    payload = {
             'subject': {
               'attributes': [
                 { 'key':'CN','value': nsx_t_manager_fqdn },
@@ -647,19 +654,19 @@ def generate_self_signed_cert():
             'algorithm': csr_request['algorithm']
           }
 
-  resp = client.post(api_endpoint, payload )
-  csr_id = resp.json()['id']
+    resp = client.post(api_endpoint, payload )
+    csr_id = resp.json()['id']
 
-  self_sign_cert_api_endpint = TRUST_MGMT_SELF_SIGN_CERT
-  self_sign_cert_url = '%s%s%s' % (self_sign_cert_api_endpint, csr_id, '?action=self_sign')
-  self_sign_csr_response = client.post(self_sign_cert_url, '').json()
+    self_sign_cert_api_endpint = TRUST_MGMT_SELF_SIGN_CERT
+    self_sign_cert_url = '%s%s%s' % (self_sign_cert_api_endpint, csr_id, '?action=self_sign')
+    self_sign_csr_response = client.post(self_sign_cert_url, '').json()
 
-  self_sign_csr_id = self_sign_csr_response['id']
+    self_sign_csr_id = self_sign_csr_response['id']
 
-  update_api_endpint = '%s%s%s' % (TRUST_MGMT_UPDATE_CERT, '&certificate_id=', self_sign_csr_id)
-  update_csr_response = client.post(update_api_endpint, '')
+    update_api_endpint = '%s%s%s' % (TRUST_MGMT_UPDATE_CERT, '&certificate_id=', self_sign_csr_id)
+    update_csr_response = client.post(update_api_endpint, '')
 
-  print('NSX Mgr updated to use newly generated CSR!!'
+    print('NSX Mgr updated to use newly generated CSR!!'
         + '\n    Update response code:{}'.format(update_csr_response.status_code))
 
 def set_t0_route_redistribution():
@@ -1034,38 +1041,62 @@ def create_all_t1_routers():
     enable_route_advertisement(t1_router_id, advertise_lb_vip=advertise_lb_vip)
 
 
+def get_args():
+    parser = argparse.ArgumentParser(
+        description='Arguments for NSX resource config')
+
+    parser.add_argument('-r', '--router_config',
+                        required=True,
+                        default='false',
+                        action='store',
+                        help='Whether to perform NSX router/IPAM/LB config')
+
+    parser.add_argument('-c', '--generate_cert',
+                        required=True,
+                        default='false',
+                        action='store',
+                        help='Whether to generate NSX cert')
+
+    args = parser.parse_args()
+    return args
+
+
 def main():
+    args = get_args()
     init()
-    load_edge_clusters()
-    load_transport_zones()
-    load_logical_routers()
-    load_loadbalancer_monitors()
-    load_loadbalancer_app_profiles()
-    load_loadbalancer_persistence_profiles()
-    load_ip_blocks()
-    load_ip_pools()
 
-    # No support for switching profile in the ansible script yet
-    # So create directly
-    create_ha_switching_profile()
+    if args.router_config.lower() == 'true':
+        load_edge_clusters()
+        load_transport_zones()
+        load_logical_routers()
+        load_loadbalancer_monitors()
+        load_loadbalancer_app_profiles()
+        load_loadbalancer_persistence_profiles()
+        load_ip_blocks()
+        load_ip_pools()
 
-    # # Set the route redistribution
-    set_t0_route_redistribution()
+        # No support for switching profile in the ansible script yet
+        # So create directly
+        create_ha_switching_profile()
 
-    # #print_t0_route_nat_rules()
-    add_t0_route_nat_rules()
+        # # Set the route redistribution
+        set_t0_route_redistribution()
 
-    create_all_t1_routers()
+        # #print_t0_route_nat_rules()
+        add_t0_route_nat_rules()
 
-    create_container_ip_blocks()
-    create_external_ip_pools()
+        create_all_t1_routers()
 
-    # Add Loadbalancers, update if already existing
-    add_loadbalancers()
+        create_container_ip_blocks()
+        create_external_ip_pools()
 
-    # Push this to the last step as the login gets kicked off
-    # Generate self-signed cert
-    generate_self_signed_cert()
+        # Add Loadbalancers, update if already existing
+        add_loadbalancers()
+
+    if args.generate_cert.lower() == 'true':
+        # Push this to the last step as the login gets kicked off
+        # Generate self-signed cert
+        generate_self_signed_cert()
 
 if __name__ == '__main__':
   main()

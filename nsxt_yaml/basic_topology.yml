@@ -31,6 +31,7 @@
         role: "nsx-manager"
         ssh_enabled: "{{hostvars['localhost'].nsx_manager_ssh_enabled}}"
         allow_ssh_root_login: "{{hostvars['localhost'].nsx_manager_ssh_enabled}}"
+      register: ova_deploy_status
 
     - name: Check manager status
       nsxt_manager_status:
@@ -42,6 +43,17 @@
 
     - name: Wait 2 minutes before accessing NSX Manager API
       pause: minutes=2
+      when:
+        - ova_deploy_status.changed == true
+
+    - name: Generate NSX self-signed certificate if it doens't exist
+      command: python nsx_t_gen.py --router_config false --generate_cert true
+
+    - name: Wait 2 minutes before accessing NSX Manager API
+      pause: minutes=2
+
+    - name: Wait for Manager API server to be up
+      shell: "last=1; while [ $last -ne 0 ]; do curl -s -o /dev/null -ku '{{hostvars['localhost'].nsx_manager_username}}:{{hostvars['localhost'].nsx_manager_password}}' https://{{hostvars['localhost'].nsx_manager_ip}}/api/v1/trust-management/certificates --connect-timeout 5; last=$?; echo \"waiting for NSX Manager to come up\"; done"
 
     # this should've been enabled already
     - name: Enable install-upgrade service
