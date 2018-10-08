@@ -1,3 +1,4 @@
+ 
 
 
 # nsx-t-datacenter-ci-pipelines
@@ -10,6 +11,9 @@ The Concourse pipeline performs the following jobs:
 1. Deploy NSX manager, controllers and edges;
 2. Convert hosts from vCenter clusters specified by user to NSX transport nodes;
 3. Create NSX logical resources to make the environment PAS/PKS deployment ready.
+
+## For the full documentation see the wiki page
+See the wiki: https://github.com/vmware/nsx-t-datacenter-ci-pipelines/wiki
 
 ## Try it out
 On a Ubuntu VM with at least ~20GB of space,
@@ -35,6 +39,8 @@ Set CONCOURSE_URL to http://<host_ip>:8080 (host_ip is the IP address of the pri
 The above command will automatically download the ovftool (e.g. VMware-ovftool-4.3.0-xxxxxxx-lin.x86_64.bundle) and NSX OVA (nsx-unified-appliance-2.2.0.0.0.xxxxxxx.ova) files from myvmware.com. If you have already downloaded the two files manually, place them under /home/concourse, and run above command with VMWARE_USER and VMWARE_PASSWORD skipped.
 
 Browse to the Concourse pipeline: http://<CONCOURSE_URL>/teams/main/pipelines/install-nsx-t/ (example: http://10.85.99.130:8080/teams/main/pipelines/install-nsx-t/) and click on the plus on the upper right corner to trigger a build to install NSX-T.
+
+Check out the [Troubleshooting Guide](https://github.com/vmware/nsx-t-datacenter-ci-pipelines/wiki/Troubleshooting) for troubleshooting tips.
 
 ## Contributing
 
