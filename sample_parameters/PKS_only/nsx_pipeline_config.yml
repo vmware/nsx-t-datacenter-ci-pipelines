@@ -196,3 +196,6 @@ nsx_t_csr_request_spec: |
 
 nsx_t_lbr_spec: |
   loadbalancers:
+  
+nsx_t_ha_switching_profile_spec: |
+  ha_switching_profiles:
