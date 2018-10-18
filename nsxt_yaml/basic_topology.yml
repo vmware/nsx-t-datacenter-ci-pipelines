@@ -14,7 +14,7 @@
         datastore: "{{hostvars['localhost'].vcenter_datastore}}"
         portgroup: "{{hostvars['localhost'].mgmt_portgroup}}"
         cluster: "{{hostvars['localhost'].vcenter_cluster}}"
-        vmname: "{{hostvars['localhost'].nsx_manager_assigned_hostname}}.{{hostvars['localhost'].dns_domain}}"
+        vmname: "{{hostvars['localhost'].nsx_manager_assigned_hostname}}
         hostname: "{{hostvars['localhost'].nsx_manager_assigned_hostname}}.{{hostvars['localhost'].dns_domain}}"
         dns_server: "{{hostvars['localhost'].dns_server}}"
         dns_domain: "{{hostvars['localhost'].dns_domain}}"
