@@ -73,21 +73,12 @@ python get_mo_ref_id.py --host $vcenter_ip_int --user $vcenter_username_int --pa
 cp hosts.out ${PIPELINE_DIR}/nsxt_yaml/basic_topology.yml ${PIPELINE_DIR}/nsxt_yaml/vars.yml nsxt-ansible/
 cd nsxt-ansible
 
-echo ""
-
-
-# Check if NSX MGR is up or not
-nsx_mgr_up_status=$(curl -s --connect-timeout 5 -o /dev/null -I -w "%{http_code}" -k  https://${nsx_manager_ip_int}:443/login.jsp || true)
-
 # Deploy the ovas if its not up
-if [ $nsx_mgr_up_status -ne 200 ]; then
-  echo "NSX Mgr not deployed yet. Installing ovftool"
-  install_ovftool
-fi
+echo "Installing ovftool"
+install_ovftool
 
 cp ${PIPELINE_DIR}/tasks/install-nsx-t/turn_off_reservation.py ./
 cp ${PIPELINE_DIR}/tasks/config-nsx-t-extras/*.py ./
-
 ansible-playbook $DEBUG -i hosts.out basic_topology.yml
 STATUS=$?
 
