@@ -107,7 +107,7 @@ nsx_t_t1router_logical_switches_spec: |
       logical_switch_gw: 192.168.50.1 # Last octet should be 1 rather than 0
       subnet_mask: 24
 
-  - name: T1Router-PKS-Services
+  - name: T1-Router-PKS-Services
     switches:
     - name: PKS-Services
       logical_switch_gw: 192.168.60.1 # Last octet should be 1 rather than 0
