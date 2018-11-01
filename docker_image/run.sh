@@ -200,4 +200,3 @@ $stop_pipeline_cmd
 docker-compose down
 docker stop nsx-t-install-nginx
 exit 0
-
