@@ -1,58 +1,105 @@
 #!/usr/bin/env bash
-# Set this via a env var
-# CONCOURSE_URL="http://10.33.75.99:8080"
-# EXTERNAL_DNS=<dns_ip>
-# IMAGE_WEBSERVER_PORT=<port_number>
-# VMWARE_USER
-# VMWARE_PASSWORD
-# NSXT_VERSION
-# PIPELINE_BRANCH
 
+# globals
+function log() { echo "-----> $@"; }
 ROOT_WORK_DIR="/home/workspace"
 BIND_MOUNT_DIR="/home/concourse"
-CONFIG_FILE_NAME="nsx_pipeline_config.yml"
 
+log "parsing arguments"
+while [ "$1" != "" ]; do
+case "$1" in
+    "-CONCOURSE_URL")
+        shift; CONCOURSE_URL=$1
+        shift; continue
+        ;;
+    "-EXTERNAL_DNS")
+        shift; EXTERNAL_DNS=$1
+        shift; continue
+        ;;
+    "-IMAGE_WEBSERVER_PORT")
+        shift; IMAGE_WEBSERVER_PORT=$1
+        shift; continue
+        ;;
+    "-VMWARE_USER")
+        shift; VMWARE_USER=$1
+        shift; continue
+        ;;
+    "-VMWARE_PASS")
+        shift; VMWARE_PASS=$1
+        shift; continue
+        ;;        
+    "-NSXT_VERSION")
+        shift; NSXT_VERSION=$1
+        shift; continue
+        ;;            
+    "-CONFIG_FILE_NAME")
+        shift; CONFIG_FILE_NAME=$1
+        shift; continue
+		;;
+    *)
+        echo "unknown argument '$1'"
+        shift
+        ;;
+esac
+done
+
+# defaults
+if [ -z "${CONCOURSE_TARGET}" ]; then		  CONCOURSE_TARGET=nsx-concourse; fi
+if [ -z "${PIPELINE_NAME}" ]; then 			  PIPELINE_NAME=nsx-t-install; fi
+if [ -z "${CONFIG_FILE_NAME}" ]; then         CONFIG_FILE_NAME=nsx_pipeline_config.yml; fi
+if [ -z "${NSXT_VERSION}" ]; then             NSXT_VERSION=2.3.0; fi
+if [ -z "${IMAGE_WEBSERVER_PORT}" ]; then     IMAGE_WEBSERVER_PORT=40002; fi
+if [ -z "${EXTERNAL_DNS}" ]; then             EXTERNAL_DNS=`grep ^nameserver /etc/resolv.conf | shuf | awk 'END{print $2}'`; fi
+if [ -z "${CONCOURSE_URL}" ]; then             
+    echo "CONCOURSE_URL must be specified like http://192.168.18.15:8080"
+    exit 1
+fi 
 if [[ ! -e ${BIND_MOUNT_DIR}/${CONFIG_FILE_NAME} ]]; then
-	echo "Config file ${BIND_MOUNT_DIR}/${CONFIG_FILE_NAME} not found, exiting"
-	exit 1
+    echo "Config file ${BIND_MOUNT_DIR}/${CONFIG_FILE_NAME} not found, exiting"
+    exit 1
 fi
 
-# download the ovftool and OVA files
+log "strictly overwriting 'nsx_image_webserver'-value in ${CONFIG_FILE_NAME} - sorry for that"
+websrv="`echo $CONCOURSE_URL | rev | cut -d':' -f 2- | rev`:${IMAGE_WEBSERVER_PORT}"
+sed -i 's%^nsx_image_webserver:.*%nsx_image_webserver: '${websrv}'%g' ${BIND_MOUNT_DIR}/${CONFIG_FILE_NAME}
+
+log "download the ovftool and OVA files"
 cd $BIND_MOUNT_DIR
 ova_file_name=$(ls -l *.ova | sed 's/.* nsx/nsx/;s/ova.*/ova/' | tail -n1)
 ovftool_file_name=$(ls -l *.bundle | sed 's/.* VMware-ovftool/VMware-ovftool/;s/bundle.*/bundle/' | tail -n1)
-nsxt_version=2.2.0
+nsxt_version=2.3.0
 if [[ $NSXT_VERSION != "" ]]; then
-	nsxt_version=$NSXT_VERSION
+    nsxt_version=$NSXT_VERSION
 fi
 
 if [[ $ova_file_name == "" ]] || [[ $ovftool_file_name == "" ]]; then
-	#ovftool_file_name="VMware-ovftool-4.3.0-7948156-lin.x86_64.bundle"
-	#ova_file_name="nsx-unified-appliance-2.2.0.0.0.8680778.ova"
-	set -e
-	docker run -itd --name vmw-cli -e VMWINDEXDIR="/state" -e VMWUSER=$VMWARE_USER -e VMWPASS=$VMWARE_PASSWORD -v ${BIND_MOUNT_DIR}:/files --entrypoint=sh apnex/vmw-cli
+    #ovftool_file_name="VMware-ovftool-4.3.0-7948156-lin.x86_64.bundle"
+    #ova_file_name="nsx-unified-appliance-2.2.0.0.0.8680778.ova"
+    set -e
+    docker run -itd --name vmw-cli -e VMWINDEXDIR="/state" -e VMWUSER=$VMWARE_USER -e VMWPASS=$VMWARE_PASSWORD -v ${BIND_MOUNT_DIR}:/files --entrypoint=sh apnex/vmw-cli
 
-	docker exec -t vmw-cli vmw-cli index OVFTOOL430
-	ovftool_file_name=$(docker exec -t vmw-cli vmw-cli find fileType:bundle,version:4.3 | grep VMware-ovftool | sed 's/.* VMware-ovftool/VMware-ovftool/;s/bundle.*/bundle/' | tail -n1)
-	docker exec -t vmw-cli vmw-cli get $ovftool_file_name
+    docker exec -t vmw-cli vmw-cli index OVFTOOL430
+    ovftool_file_name=$(docker exec -t vmw-cli vmw-cli find fileType:bundle,version:4.3 | grep VMware-ovftool | sed 's/.* VMware-ovftool/VMware-ovftool/;s/bundle.*/bundle/' | tail -n1)
+    docker exec -t vmw-cli vmw-cli get $ovftool_file_name
 
-	version_no_dots=$(echo $nsxt_version | sed 's/\.//g')
-	docker exec -t vmw-cli vmw-cli index NSX-T-${version_no_dots}
-	ova_file_name=$(docker exec -t vmw-cli vmw-cli find fileType:ova,version:${nsxt_version} | grep nsx-unified-appliance | sed 's/.* nsx/nsx/;s/ova.*/ova/' | tail -n1)
-	docker exec -t vmw-cli vmw-cli get $ova_file_name
-	docker stop vmw-cli
-	docker rm vmw-cli
+    version_no_dots=$(echo $nsxt_version | sed 's/\.//g')
+    docker exec -t vmw-cli vmw-cli index NSX-T-${version_no_dots}
+    ova_file_name=$(docker exec -t vmw-cli vmw-cli find fileType:ova,version:${nsxt_version} | grep nsx-unified-appliance | sed 's/.* nsx/nsx/;s/ova.*/ova/' | tail -n1)
+    docker exec -t vmw-cli vmw-cli get $ova_file_name
+    docker stop vmw-cli
+    docker rm vmw-cli
 
-        if [[ $ova_file_name == "" ]]; then
-		echo "OVA not found for NSX version $nsxt_version. Please specify a supported version and recreate the container."
-		exit 1
-	fi
-	set +e
+    if [[ $ova_file_name == "" ]]; then
+        echo "OVA not found for NSX version $nsxt_version. Please specify a supported version and recreate the container."
+        exit 1
+    fi
+    set +e
 fi
 
+log "writing additional pipeline configs"
 nsx_t_pipeline_branch=master
 if [[ $PIPELINE_BRANCH != "" ]]; then
-	nsx_t_pipeline_branch=$PIPELINE_BRANCH
+    nsx_t_pipeline_branch=$PIPELINE_BRANCH
 fi
 
 pipeline_internal_config="pipeline_config_internal.yml"
@@ -60,9 +107,11 @@ echo "ovftool_file_name: $ovftool_file_name" > $pipeline_internal_config
 echo "ova_file_name: $ova_file_name" >> $pipeline_internal_config
 echo "nsx_t_pipeline_branch: $nsx_t_pipeline_branch" >> $pipeline_internal_config
 
-# start a web server to host static files such as ovftool and NSX manager OVA
-docker run --name nginx-server -v ${BIND_MOUNT_DIR}:/usr/share/nginx/html:ro -p ${IMAGE_WEBSERVER_PORT}:80 -d nginx
+log "start a web server to host static files such as ovftool and NSX manager OVA"
+docker run --name nsx-t-install-nginx -v ${BIND_MOUNT_DIR}:/usr/share/nginx/html:ro -p ${IMAGE_WEBSERVER_PORT}:80 --rm -d nginx
 
+
+log "fetch and prepare concourse"
 mkdir -p $ROOT_WORK_DIR
 cd $ROOT_WORK_DIR
 git clone https://github.com/concourse/concourse-docker.git
@@ -91,51 +140,63 @@ done
 #sed -i "0,/^ *- CONCOURSE_GARDEN_NETWORK/ s|- CONCOURSE_GARDEN_NETWORK.*$|#- CONCOURSE_GARDEN_NETWORK|" docker-compose.yml
 #sed -i "/^ *- CONCOURSE_EXTERNAL_URL/ a\    - CONCOURSE_NO_REALLY_I_DONT_WANT_ANY_AUTH=true" docker-compose.yml
 
-echo "bringing up Concourse server in a docker-compose cluster"
+log "bringing up Concourse server in a docker-compose cluster"
 docker-compose up -d
 
 # waiting for the concourse API server to start up
-while true; do
-	curl -s -o /dev/null $CONCOURSE_URL
-	if [[ $? -eq 0 ]]; then
-		break
-	fi
-	echo "waiting for Concourse web server to be running"
-	sleep 2
+while ! curl -s -o /dev/null $CONCOURSE_URL; do
+    log "waiting for Concourse web server to become running"
+    sleep 2
 done
-echo "brought up the Concourse cluster"
 
-# using fly to start the pipeline
-CONCOURSE_TARGET=nsx-concourse
-PIPELINE_NAME=nsx-t-install
-echo "logging into concourse at $CONCOURSE_URL"
-fly -t $CONCOURSE_TARGET sync
+log "fly: logging into concourse at $CONCOURSE_URL"
 fly --target $CONCOURSE_TARGET login --insecure --concourse-url $CONCOURSE_URL -n main
-echo "setting the NSX-t install pipeline $PIPELINE_NAME"
-fly_reset_cmd="fly -t $CONCOURSE_TARGET set-pipeline -p $PIPELINE_NAME -c ${pipeline_dir}/pipelines/nsx-t-install.yml -l ${BIND_MOUNT_DIR}/${pipeline_internal_config} -l ${BIND_MOUNT_DIR}/${CONFIG_FILE_NAME}"
-yes | $fly_reset_cmd
-echo "unpausing the pipepline $PIPELINE_NAME"
-fly -t $CONCOURSE_TARGET unpause-pipeline -p $PIPELINE_NAME
+fly --target $CONCOURSE_TARGET sync
 
-# add an alias for set-pipeline command
-echo "alias fly-reset=\"$fly_reset_cmd\"" >> ~/.bashrc
-destroy_cmd="cd $BIND_MOUNT_DIR; fly -t $CONCOURSE_TARGET destroy-pipeline -p $PIPELINE_NAME; docker-compose down; docker stop nginx-server; docker rm nginx-server;"
-echo "alias destroy=\"$destroy_cmd\"" >> ~/.bashrc
+
+fly_cmd_set="fly -t $CONCOURSE_TARGET set-pipeline -p $PIPELINE_NAME -c ${pipeline_dir}/pipelines/nsx-t-install.yml -l ${BIND_MOUNT_DIR}/${pipeline_internal_config} -l ${BIND_MOUNT_DIR}/${CONFIG_FILE_NAME} --non-interactive"
+fly_cmd_start="fly -t $CONCOURSE_TARGET unpause-pipeline -p $PIPELINE_NAME"
+fly_cmd_stop="fly -t $CONCOURSE_TARGET destroy-pipeline -p $PIPELINE_NAME --non-interactive"
+fly_cmd_status="fly targets ; fly -t $CONCOURSE_TARGET status ; fly -t $CONCOURSE_TARGET pipelines ; fly -t $CONCOURSE_TARGET workers"
+
+
+log "fly: setting the NSX-t install pipeline $PIPELINE_NAME"
+$fly_cmd_set
+
+log "fly: starting / unpausing pipeline"
+$fly_cmd_start
+
+log "fly: veryfly"
+fly targets ; fly -t $CONCOURSE_TARGET pipelines
+
+# adding aliases to .bashrc
+echo "alias fly-set=\"${fly_cmd_set}\"" >> ~/.bashrc
+echo "alias fly-start=\"${fly_cmd_start}\"" >> ~/.bashrc
+echo "alias fly-stop=\"${fly_cmd_stop}\"" >> ~/.bashrc
+echo "alias fly-status=\"${fly_cmd_status}\"" >> ~/.bashrc
 source ~/.bashrc
 
-while true; do
-	is_worker_running=$(docker ps | grep concourse-worker)
-	if [[ ! $is_worker_running ]]; then
-		docker-compose restart concourse-worker
-		echo "concourse worker is down; restarted it"
-		break
-	fi
-	sleep 5
-done
+cd ${BIND_MOUNT_DIR}
+echo "$$" >> running.pid
 
-sleep 3d
-fly -t $CONCOURSE_TARGET destroy-pipeline -p $PIPELINE_NAME
+if [ -t 0 ] ; then
+    log "(interactive shell - exit to terminate)"
+    bash -i     
+else
+    log "(not interactive shell - remove 'running.pid' to terminate)"
+    while [ -e running.pid ]; do
+        if ! docker ps | grep -q concourse-worker; then
+            log "lost worker, restarting"
+            docker-compose restart concourse-worker
+        fi
+        sleep 5
+    done
+fi
+
+log "shutting down"
+rm -f running.pid
+
+$stop_pipeline_cmd
 docker-compose down
-docker stop nginx-server
-docker rm nginx-server
+docker stop nsx-t-install-nginx
 exit 0

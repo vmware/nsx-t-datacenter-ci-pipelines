@@ -1,5 +1,4 @@
 FROM ubuntu:17.10
-ADD run.sh /home/run.sh
 
 # https://docs.docker.com/compose/install/#install-compose
 RUN apt-get update && \
@@ -10,5 +9,7 @@ RUN apt-get update && \
     # download and install fly CLI
     wget -O /usr/local/bin/fly https://github.com/Concourse/Concourse/releases/download/v3.14.1/fly_linux_amd64 && \
     chmod +x /usr/local/bin/fly
+
+ADD run.sh /home/run.sh
 
 ENTRYPOINT ["/home/run.sh"]
