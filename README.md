@@ -24,6 +24,7 @@ mkdir -p /home/concourse
 ```
 Create nsx_pipeline_config.yml based on a sample config file, e.g. https://github.com/vmware/nsx-t-datacenter-ci-pipelines/blob/master/sample_parameters/PAS_only/nsx_pipeline_config.yml for PAS environment, and place it under /home/concourse.
 ```
+echo "My VMware Password:" && read -s password
 docker run --name nsx-t-install -d \
   -v /var/run/docker.sock:/var/run/docker.sock \
   -v /home/concourse:/home/concourse \
@@ -31,7 +32,7 @@ docker run --name nsx-t-install -d \
   -e EXTERNAL_DNS="10.33.38.1" \
   -e IMAGE_WEBSERVER_PORT=40001 \
   -e VMWARE_USER='<myvmware_user_email>' \
-  -e VMWARE_PASSWORD='<myvmware_password>' \
+  -e VMWARE_PASSWORD="$password" \
   nsx-t-install
 ```
 Set CONCOURSE_URL to http://<host_ip>:8080 (host_ip is the IP address of the primary NIC of the VM running the container (example: 10.85.99.130); it is not the loopback address. Set EXTERNAL_DNS to the DNS server (it should be able to resolve the vCenter hostname, and public names e.g. github.com), and  IMAGE_WEBSERVER_PORT to the port number provided in the  nsx_pipeline_config.yml parameter nsx_image_webserver (recommendation: 40001).
