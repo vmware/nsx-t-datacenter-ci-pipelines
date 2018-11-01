@@ -91,3 +91,4 @@ docker image save nsx-t-install:latest | bzip2 --best > nsx-t-install-release-`d
 ```
 wget -qO- https://github.com/maldex/nsx-t-datacenter-ci-pipelines/releases/download/20181101-1048/nsx-t-install-release-20181101-1048.tbz2 | bzip2 -d -c | docker load
 ```
+
