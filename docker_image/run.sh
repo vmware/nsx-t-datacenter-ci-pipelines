@@ -8,6 +8,14 @@ BIND_MOUNT_DIR="/home/concourse"
 log "parsing arguments"
 while [ "$1" != "" ]; do
 case "$1" in
+    "-CONCOURSE_IP")
+        shift; CONCOURSE_IP=$1
+        shift; continue
+        ;;
+    "-CONCOURSE_PORT")
+        shift; CONCOURSE_PORT=$1
+        shift; continue
+        ;;
     "-CONCOURSE_URL")
         shift; CONCOURSE_URL=$1
         shift; continue
@@ -50,18 +58,25 @@ if [ -z "${CONFIG_FILE_NAME}" ]; then         CONFIG_FILE_NAME=nsx_pipeline_conf
 if [ -z "${NSXT_VERSION}" ]; then             NSXT_VERSION=2.3.0; fi
 if [ -z "${IMAGE_WEBSERVER_PORT}" ]; then     IMAGE_WEBSERVER_PORT=40002; fi
 if [ -z "${EXTERNAL_DNS}" ]; then             EXTERNAL_DNS=`grep ^nameserver /etc/resolv.conf | shuf | awk 'END{print $2}'`; fi
-if [ -z "${CONCOURSE_URL}" ]; then             
-    echo "CONCOURSE_URL must be specified like http://192.168.18.15:8080"
+if [ -z "${CONCOURSE_PORT}" ]; then           CONCOURSE_PORT=8080; fi
+if [ ! -z "${CONCOURSE_IP}" ]; then           CONCOURSE_URL="http://${CONCOURSE_IP}:${CONCOURSE_PORT}"; fi
+if [ ! -z "${CONCOURSE_URL}" ]; then          CONCOURSE_IP="`echo $CONCOURSE_URL | tr -d '/' | awk -F':' '{print $2}'`"
+else
+    echo "either specifiy CONCOURSE_URL like http://192.168.18.15:8080 or CONCOURSE_IP like 192.168.18.15"
     exit 1
-fi 
-if [[ ! -e ${BIND_MOUNT_DIR}/${CONFIG_FILE_NAME} ]]; then
+fi
+
+if [ ! -e ${BIND_MOUNT_DIR}/${CONFIG_FILE_NAME} ]; then
     echo "Config file ${BIND_MOUNT_DIR}/${CONFIG_FILE_NAME} not found, exiting"
     exit 1
 fi
 
-log "strictly overwriting 'nsx_image_webserver'-value in ${CONFIG_FILE_NAME} - sorry for that"
-websrv="`echo $CONCOURSE_URL | rev | cut -d':' -f 2- | rev`:${IMAGE_WEBSERVER_PORT}"
-sed -i 's%^nsx_image_webserver:.*%nsx_image_webserver: '${websrv}'%g' ${BIND_MOUNT_DIR}/${CONFIG_FILE_NAME}
+if ! grep "nsx_image_webserver" ${BIND_MOUNT_DIR}/${CONFIG_FILE_NAME} | grep -q "${CONCOUSE_IP}"; then 
+    log "image_webserver not on CONCOURSE_IP, fixing"
+    sed -i 's%^nsx_image_webserver:.*%nsx_image_webserver: '${CONCOURSE_IP}:${IMAGE_WEBSERVER_PORT}'%g' ${BIND_MOUNT_DIR}/${CONFIG_FILE_NAME}
+fi
+
+
 
 log "download the ovftool and OVA files"
 cd $BIND_MOUNT_DIR
@@ -145,7 +160,7 @@ docker-compose up -d
 
 # waiting for the concourse API server to start up
 while ! curl -s -o /dev/null $CONCOURSE_URL; do
-    log "waiting for Concourse web server to become running"
+    log "waiting for $CONCOURSE_URL to become running"
     sleep 2
 done
 
@@ -154,26 +169,36 @@ fly --target $CONCOURSE_TARGET login --insecure --concourse-url $CONCOURSE_URL -
 fly --target $CONCOURSE_TARGET sync
 
 
-fly_cmd_set="fly -t $CONCOURSE_TARGET set-pipeline -p $PIPELINE_NAME -c ${pipeline_dir}/pipelines/nsx-t-install.yml -l ${BIND_MOUNT_DIR}/${pipeline_internal_config} -l ${BIND_MOUNT_DIR}/${CONFIG_FILE_NAME} --non-interactive"
-fly_cmd_start="fly -t $CONCOURSE_TARGET unpause-pipeline -p $PIPELINE_NAME"
-fly_cmd_stop="fly -t $CONCOURSE_TARGET destroy-pipeline -p $PIPELINE_NAME --non-interactive"
-fly_cmd_status="fly targets ; fly -t $CONCOURSE_TARGET status ; fly -t $CONCOURSE_TARGET pipelines ; fly -t $CONCOURSE_TARGET workers"
+function fly_cmd_set() {
+    fly -t $CONCOURSE_TARGET set-pipeline -p $PIPELINE_NAME -c ${pipeline_dir}/pipelines/nsx-t-install.yml -l ${BIND_MOUNT_DIR}/${pipeline_internal_config} -l ${BIND_MOUNT_DIR}/${CONFIG_FILE_NAME} --non-interactive
+}
+function fly_cmd_start() {
+    fly -t $CONCOURSE_TARGET unpause-pipeline -p $PIPELINE_NAME
+}
+function fly_cmd_stop() {
+    fly -t $CONCOURSE_TARGET destroy-pipeline -p $PIPELINE_NAME --non-interactive
+}
+function fly_cmd_status() {
+    fly targets ; fly -t $CONCOURSE_TARGET status ; fly -t $CONCOURSE_TARGET pipelines ; fly -t $CONCOURSE_TARGET workers
+}
 
+declare -f fly_cmd_set fly_cmd_start fly_cmd_stop fly_cmd_status >> ~/.bashrc
+export CONCOURSE_TARGET PIPELINE_NAME pipeline_dir BIND_MOUNT_DIR CONFIG_FILE_NAME pipeline_internal_config
 
 log "fly: setting the NSX-t install pipeline $PIPELINE_NAME"
-$fly_cmd_set
+fly_cmd_set
 
 log "fly: starting / unpausing pipeline"
-$fly_cmd_start
+fly_cmd_start
 
 log "fly: veryfly"
-fly targets ; fly -t $CONCOURSE_TARGET pipelines
+fly_cmd_status
 
 # adding aliases to .bashrc
-echo "alias fly-set=\"${fly_cmd_set}\"" >> ~/.bashrc
-echo "alias fly-start=\"${fly_cmd_start}\"" >> ~/.bashrc
-echo "alias fly-stop=\"${fly_cmd_stop}\"" >> ~/.bashrc
-echo "alias fly-status=\"${fly_cmd_status}\"" >> ~/.bashrc
+#echo "alias fly-set=\"${fly_cmd_set}\"" >> ~/.bashrc
+#echo "alias fly-start=\"${fly_cmd_start}\"" >> ~/.bashrc
+#echo "alias fly-stop=\"${fly_cmd_stop}\"" >> ~/.bashrc
+#echo "alias fly-status=\"${fly_cmd_status}\"" >> ~/.bashrc
 source ~/.bashrc
 
 cd ${BIND_MOUNT_DIR}
@@ -181,7 +206,7 @@ echo "$$" >> running.pid
 
 if [ -t 0 ] ; then
     log "(interactive shell - exit to terminate)"
-    bash -i     
+    bash     
 else
     log "(not interactive shell - remove 'running.pid' to terminate)"
     while [ -e running.pid ]; do
