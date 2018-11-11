@@ -79,7 +79,7 @@ docker run -it --name nsx-t-installer --rm \
   -v /home/concourse:/home/concourse \
   nsx-t-install -CONCOURSE_URL http://192.168.18.146:8080 
 ```
-
+Add vmware download credentials via _VMUSER_ and _VMPASS_.
 
 ### export this container
 ```

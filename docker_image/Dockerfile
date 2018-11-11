@@ -10,7 +10,8 @@ RUN     apt-get update && \
         wget -O /usr/local/bin/fly https://github.com/Concourse/Concourse/releases/download/v3.14.1/fly_linux_amd64 && \
         chmod +x /usr/local/bin/fly
 
-ADD     run.sh      /home/run.sh
-ADD     Dockerfile  /Dockerfile
+ADD     run.sh            /home/run.sh
+ADD     run.functions.sh  /home/run.functions.sh
+ADD     Dockerfile        /Dockerfile
 
 ENTRYPOINT ["/home/run.sh"]
