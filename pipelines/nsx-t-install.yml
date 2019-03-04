@@ -33,6 +33,7 @@ nsx_t_gen_params: &nsx-t-gen-params
   vtep_ip_pool_start_int: ((vtep_ip_pool_start))
   vtep_ip_pool_end_int: ((vtep_ip_pool_end))
 
+  unified_appliance_int: ((unified_appliance))
   resource_reservation_off_int: ((resource_reservation_off))
   controller_ips_int: ((controller_ips))
   controller_default_gateway_int: ((controller_default_gateway))
