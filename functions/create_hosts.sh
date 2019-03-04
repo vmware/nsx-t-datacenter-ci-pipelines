@@ -161,6 +161,7 @@ tier0_uplink_next_hop_ip="$tier0_uplink_next_hop_ip_int"
 
 resource_reservation_off="$resource_reservation_off_int"
 nsx_manager_ssh_enabled="$nsx_manager_ssh_enabled_int"
+unified_appliance="$unified_appliance_int"
 EOF
 
   set_list_var_and_strip_whitespaces esx_available_vmnic_int hosts
