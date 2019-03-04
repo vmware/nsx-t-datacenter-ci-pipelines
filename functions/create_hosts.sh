@@ -164,6 +164,12 @@ nsx_manager_ssh_enabled="$nsx_manager_ssh_enabled_int"
 unified_appliance="$unified_appliance_int"
 EOF
 
+  if [[ $unified_appliance_int == "true" ]]; then
+    echo "nsx_manager_role=nsx-manager nsx-controller" >> hosts
+  else
+    echo "nsx_manager_role=nsx-manager" >> hosts
+  fi
+
   set_list_var_and_strip_whitespaces esx_available_vmnic_int hosts
   set_list_var_and_strip_whitespaces clusters_to_install_nsx_int hosts
   set_list_var_and_strip_whitespaces per_cluster_vlans_int hosts
