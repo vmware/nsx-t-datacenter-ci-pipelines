@@ -81,7 +81,7 @@ cp ${PIPELINE_DIR}/tasks/install-nsx-t/turn_off_reservation.py ./
 cp ${PIPELINE_DIR}/tasks/config-nsx-t-extras/*.py ./
 
 # Testing
-exit 0
+exit 1
 
 ansible-playbook $DEBUG -i hosts.out basic_topology.yml
 STATUS=$?

@@ -21,7 +21,7 @@ fi
 cd $BIND_MOUNT_DIR
 ova_file_name=$(ls -l *.ova | sed 's/.* nsx/nsx/;s/ova.*/ova/' | tail -n1)
 ovftool_file_name=$(ls -l *.bundle | sed 's/.* VMware-ovftool/VMware-ovftool/;s/bundle.*/bundle/' | tail -n1)
-nsxt_version=2.2.0
+nsxt_version=2.4.0
 if [[ $NSXT_VERSION != "" ]]; then
 	nsxt_version=$NSXT_VERSION
 fi
