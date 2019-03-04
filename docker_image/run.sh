@@ -66,7 +66,7 @@ docker run --name nginx-server -v ${BIND_MOUNT_DIR}:/usr/share/nginx/html:ro -p 
 mkdir -p $ROOT_WORK_DIR
 cd $ROOT_WORK_DIR
 git clone https://github.com/concourse/concourse-docker.git
-git clone https://github.com/vmware/nsx-t-datacenter-ci-pipelines.git
+git clone -b $nsx_t_pipeline_branch --single-branch https://github.com/vmware/nsx-t-datacenter-ci-pipelines.git
 
 concourse_docker_dir=${ROOT_WORK_DIR}/concourse-docker
 pipeline_dir=${ROOT_WORK_DIR}/nsx-t-datacenter-ci-pipelines
