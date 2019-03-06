@@ -7,9 +7,7 @@
   tasks:
     - name: deploy NSX Manager OVA
       nsxt_deploy_ova:
-        vcenter: "{{hostvars['localhost'].vcenter_ip}}"
-        vcenter_user: "{{hostvars['localhost'].vcenter_username}}"
-        vcenter_passwd: "{{hostvars['localhost'].vcenter_password}}"
+        ovftool_path: "{{ovftool_bin_path}}"
         datacenter: "{{hostvars['localhost'].vcenter_datacenter}}"
         datastore: "{{hostvars['localhost'].vcenter_datastore}}"
         portgroup: "{{hostvars['localhost'].mgmt_portgroup}}"
@@ -24,9 +22,11 @@
         netmask: "{{hostvars['localhost'].netmask}}"
         admin_password: "{{hostvars['localhost'].nsx_manager_password}}"
         cli_password: "{{hostvars['localhost'].nsx_manager_password}}"
-        ovftool_path: "{{ovftool_bin_path}}"
         path_to_ova: "{{hostvars['localhost'].nsx_image_webserver}}"
         ova_file: "{{hostvars['localhost'].ova_file_name}}"
+        vcenter: "{{hostvars['localhost'].vcenter_ip}}"
+        vcenter_user: "{{hostvars['localhost'].vcenter_username}}"
+        vcenter_passwd: "{{hostvars['localhost'].vcenter_password}}"
         deployment_size: "{{hostvars['localhost'].nsx_manager_deployment_size}}"
         role: "{{hostvars['localhost'].nsx_manager_role}}"
         ssh_enabled: "{{hostvars['localhost'].nsx_manager_ssh_enabled}}"
@@ -141,7 +141,8 @@
         - hostvars['localhost'].resource_reservation_off == "true"
 
     - name: Deploy controller
-      nsxt_controllers:
+      # TODO: change back to nsxt_controller once nsx-t ansible is backward compatible
+      nsxt_controller_manager_auto_deployment:
         hostname: "{{hostvars['localhost'].nsx_manager_ip}}"
         username: "{{hostvars['localhost'].nsx_manager_username}}"
         password: "{{hostvars['localhost'].nsx_manager_password}}"
@@ -178,7 +179,7 @@
         - hostvars['localhost'].unified_appliance == "false"
 
     - name: Deploy controller manager (Unified Appliance)
-      nsxt_controllers:
+      nsxt_controller_manager_auto_deployment:
         hostname: "{{hostvars['localhost'].nsx_manager_ip}}"
         username: "{{hostvars['localhost'].nsx_manager_username}}"
         password: "{{hostvars['localhost'].nsx_manager_password}}"
