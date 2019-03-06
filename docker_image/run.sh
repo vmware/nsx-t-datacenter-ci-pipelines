@@ -66,7 +66,7 @@ docker run --name nginx-server -v ${BIND_MOUNT_DIR}:/usr/share/nginx/html:ro -p 
 mkdir -p $ROOT_WORK_DIR
 cd $ROOT_WORK_DIR
 git clone https://github.com/concourse/concourse-docker.git
-git clone https://github.com/vmware/nsx-t-datacenter-ci-pipelines.git
+git clone -b $nsx_t_pipeline_branch --single-branch https://github.com/vmware/nsx-t-datacenter-ci-pipelines.git
 
 concourse_docker_dir=${ROOT_WORK_DIR}/concourse-docker
 pipeline_dir=${ROOT_WORK_DIR}/nsx-t-datacenter-ci-pipelines
@@ -77,17 +77,27 @@ cd $BIND_MOUNT_DIR
 ./generate-keys.sh
 
 # prepare the yaml for docker compose
-concourse_version=3.14.1
+concourse_version=4.2.1
 sed -i "0,/^ *- CONCOURSE_EXTERNAL_URL/ s|CONCOURSE_EXTERNAL_URL.*$|CONCOURSE_EXTERNAL_URL=${CONCOURSE_URL}|" docker-compose.yml
 sed -i "0,/^ *- CONCOURSE_GARDEN_DNS_SERVER/ s|CONCOURSE_GARDEN_DNS_SERVER.*$|CONCOURSE_GARDEN_DNS_SERVER=${EXTERNAL_DNS}|" docker-compose.yml
-sed -i "0,/^ *- CONCOURSE_NO_REALLY_I_DONT_WANT_ANY_AUTH/ s|CONCOURSE_NO_REALLY_I_DONT_WANT_ANY_AUTH.*$|CONCOURSE_NO_REALLY_I_DONT_WANT_ANY_AUTH=true|" docker-compose.yml
 sed  -i "/^ *image: concourse\/concourse/ s|concourse/concourse.*$|concourse/concourse:$concourse_version|g" docker-compose.yml
 
-# remove lines containing following parameters
-patterns=("CONCOURSE_BASIC_AUTH_USERNAME" "CONCOURSE_BASIC_AUTH_PASSWORD" "http_proxy_url" "https_proxy_url" "no_proxy" "HTTP_PROXY" "HTTPS_PROXY" "NO_PROXY")
-for p in "${patterns[@]}"; do
-        sed -i "/$p/d" docker-compose.yml
-done
+# If proxy env vars not set, remove the settings
+proxy_patterns=("http_proxy_url" "https_proxy_url" "no_proxy" "HTTP_PROXY" "HTTPS_PROXY" "NO_PROXY")
+if [[ -z "$HTTP_PROXY" ]] || [[ -z "HTTPS_PROXY" ]]; then
+        for p in "${proxy_patterns[@]}"; do
+                sed -i "/$p/d" docker-compose.yml
+        done
+else
+        sed -i "0,/^ *- HTTP_PROXY/ s|HTTP_PROXY.*$|HTTP_PROXY=${HTTP_PROXY}|" docker-compose.yml
+        sed -i "0,/^ *- http_proxy_url/ s|http_proxy_url.*$|http_proxy_url=${HTTP_PROXY}|" docker-compose.yml
+
+        sed -i "0,/^ *- HTTPS_PROXY/ s|HTTPS_PROXY.*$|HTTPS_PROXY=${HTTPS_PROXY}|" docker-compose.yml
+        sed -i "0,/^ *- https_proxy_url/ s|https_proxy_url.*$|https_proxy_url=${HTTPS_PROXY}|" docker-compose.yml
+
+        sed -i "0,/^ *- NO_PROXY/ s|NO_PROXY.*$|NO_PROXY=${NO_PROXY}|" docker-compose.yml
+        sed -i "0,/^ *- no_proxy/ s|no_proxy.*$|no_proxy=${NO_PROXY}|" docker-compose.yml
+fi
 #sed -i "0,/^ *- CONCOURSE_GARDEN_NETWORK/ s|- CONCOURSE_GARDEN_NETWORK.*$|#- CONCOURSE_GARDEN_NETWORK|" docker-compose.yml
 #sed -i "/^ *- CONCOURSE_EXTERNAL_URL/ a\    - CONCOURSE_NO_REALLY_I_DONT_WANT_ANY_AUTH=true" docker-compose.yml
 
@@ -110,7 +120,7 @@ CONCOURSE_TARGET=nsx-concourse
 PIPELINE_NAME=nsx-t-install
 echo "logging into concourse at $CONCOURSE_URL"
 fly -t $CONCOURSE_TARGET sync
-fly --target $CONCOURSE_TARGET login --insecure --concourse-url $CONCOURSE_URL -n main
+fly --target $CONCOURSE_TARGET login -u nsx -p vmware --concourse-url $CONCOURSE_URL -n main
 echo "setting the NSX-t install pipeline $PIPELINE_NAME"
 fly_reset_cmd="fly -t $CONCOURSE_TARGET set-pipeline -p $PIPELINE_NAME -c ${pipeline_dir}/pipelines/nsx-t-install.yml -l ${BIND_MOUNT_DIR}/${pipeline_internal_config} -l ${BIND_MOUNT_DIR}/${CONFIG_FILE_NAME}"
 yes | $fly_reset_cmd
