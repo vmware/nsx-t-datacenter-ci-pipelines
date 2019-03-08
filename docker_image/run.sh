@@ -50,15 +50,29 @@ if [[ $ova_file_name == "" ]] || [[ $ovftool_file_name == "" ]]; then
 	set +e
 fi
 
+unified_appliance=true
+version_num=$(echo $nsxt_version | cut -d'.' -f1)
+version_sub_num=$(echo $nsxt_version | cut -d'.' -f2)
+if [[ $version_num -le 2 ]] && [[ $version_sub_num -le 3 ]]; then
+    unified_appliance=false
+fi
+
 nsx_t_pipeline_branch=master
+nsxt_ansible_branch=v1.0.0
+
 if [[ $PIPELINE_BRANCH != "" ]]; then
 	nsx_t_pipeline_branch=$PIPELINE_BRANCH
+fi
+if [[ $unified_appliance ]]; then
+    nsxt_ansible_branch=master
 fi
 
 pipeline_internal_config="pipeline_config_internal.yml"
 echo "ovftool_file_name: $ovftool_file_name" > $pipeline_internal_config
 echo "ova_file_name: $ova_file_name" >> $pipeline_internal_config
+echo "unified_appliance: $unified_appliance" >> $pipeline_internal_config
 echo "nsx_t_pipeline_branch: $nsx_t_pipeline_branch" >> $pipeline_internal_config
+echo "nsxt_ansible_branch: $nsxt_ansible_branch" >> $pipeline_internal_config
 
 # start a web server to host static files such as ovftool and NSX manager OVA
 docker run --name nginx-server -v ${BIND_MOUNT_DIR}:/usr/share/nginx/html:ro -p ${IMAGE_WEBSERVER_PORT}:80 -d nginx

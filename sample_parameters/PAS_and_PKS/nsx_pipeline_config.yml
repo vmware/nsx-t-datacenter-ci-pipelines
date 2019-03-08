@@ -68,7 +68,7 @@ vc_datacenter_for_controller: RegionA01
 vc_cluster_for_controller: RegionA01-MGMT
 vc_datastore_for_controller: iscsi
 vc_management_network_for_controller: "ESXi-RegionA01-vDS-COMP"
-controller_shared_secret: "VMware1!VMware1!"
+controller_shared_secret: "VMware1!VMware1!" # Does not need to be configured in unified appliance
 
 ## Edge nodes
 edge_ips: 192.168.110.37,192.168.110.38    #comma separated based in number of required edges

@@ -73,6 +73,17 @@ python get_mo_ref_id.py --host $vcenter_ip_int --user $vcenter_username_int --pa
 cp hosts.out ${PIPELINE_DIR}/nsxt_yaml/basic_topology.yml ${PIPELINE_DIR}/nsxt_yaml/vars.yml nsxt-ansible/
 cd nsxt-ansible
 
+if [[ "$unified_appliance_int" == "true" ]]; then
+    sed -i 's/Deploy controller/Deploy controller-manager/g' basic_topology.yml
+    sed -i 's/nsxt_controllers/nsxt_controller_manager_auto_deployment/g' basic_topology.yml
+    sed -i 's/roles: CONTROLLER/roles: [CONTROLLER, MANAGER]/g' basic_topology.yml
+    sed -i 's/vc_id/vc_name/g; s/compute_manager.id/compute_manager_name/g' basic_topology.yml
+    sed -i '/clustering_config/d; /clustering_type/d; /shared_secret/d; /join_to_existing_cluster/d' basic_topology.yml
+    DNS_SERVER_LINE="\- \"{{hostvars[\'localhost\'].dns_server}}\""
+    sed -i "/hostvars\[item\].prefix_length/a \ \ \ \ \ \ \ \ \ \ \ \ dns_servers: " basic_topology.yml
+    sed -i "/dns_servers:/a \ \ \ \ \ \ \ \ \ \ \ \ $DNS_SERVER_LINE" basic_topology.yml
+fi
+
 # Deploy the ovas if its not up
 echo "Installing ovftool"
 install_ovftool

@@ -141,15 +141,13 @@
         - hostvars['localhost'].resource_reservation_off == "true"
 
     - name: Deploy controller
-      # TODO: change back to nsxt_controller once nsx-t ansible is backward compatible
-      nsxt_controller_manager_auto_deployment:
+      nsxt_controllers:
         hostname: "{{hostvars['localhost'].nsx_manager_ip}}"
         username: "{{hostvars['localhost'].nsx_manager_username}}"
         password: "{{hostvars['localhost'].nsx_manager_password}}"
         validate_certs: False
         deployment_requests:
-        - roles:
-          - CONTROLLER
+        - roles: CONTROLLER
           form_factor: "{{hostvars[item].controller_deployment_size}}"
           user_settings:
             cli_password: "{{hostvars[item].controller_cli_password}}"
@@ -175,44 +173,6 @@
         state: present
       with_items: "{{groups['controllers']}}"
       register: controller_response
-      when:
-        - hostvars['localhost'].unified_appliance == "false"
-
-    - name: Deploy controller manager (Unified Appliance)
-      nsxt_controller_manager_auto_deployment:
-        hostname: "{{hostvars['localhost'].nsx_manager_ip}}"
-        username: "{{hostvars['localhost'].nsx_manager_username}}"
-        password: "{{hostvars['localhost'].nsx_manager_password}}"
-        validate_certs: False
-        deployment_requests:
-        - roles:
-          - CONTROLLER
-          - MANAGER
-          form_factor: "{{hostvars[item].controller_deployment_size}}"
-          user_settings:
-            cli_password: "{{hostvars['localhost'].nsx_manager_password}}"
-            root_password: "{{hostvars['localhost'].nsx_manager_password}}"
-          deployment_config:
-            placement_type: VsphereClusterNodeVMDeploymentConfig
-            vc_id: "{{compute_manager.id}}"
-            management_network_id: "{{hostvars[item].vc_management_network_for_controller}}"
-            hostname: "{{hostvars[item].hostname}}"
-            compute_id: "{{hostvars[item].vc_cluster_for_controller}}"
-            storage_id: "{{hostvars[item].vc_datastore_for_controller}}"
-            default_gateway_addresses:
-            - "{{hostvars[item].default_gateway}}"
-            management_port_subnets:
-            - ip_addresses:
-              - "{{hostvars[item].ip}}"
-              prefix_length: "{{hostvars[item].prefix_length}}"
-            dns_servers:
-              - "{{hostvars['localhost'].dns_server}}"
-            enable_ssh: "{{hostvars['localhost'].nsx_manager_ssh_enabled}}"
-        state: present
-      with_items: "{{groups['controllers']}}"
-      register: controller_response
-      when:
-        - hostvars['localhost'].unified_appliance == "true"
 
     - name: Install ping
       apt:
