@@ -129,7 +129,7 @@ resources:
   type: git
   source:
     uri: https://github.com/vmware/ansible-for-nsxt.git
-    branch: master
+    branch: v1.0.0
 
 - name: ovftool
   type: file-url
