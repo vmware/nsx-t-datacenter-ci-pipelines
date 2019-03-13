@@ -185,7 +185,7 @@ class HostsFileWriter(object):
 
     def modify_deploy_size_if_matched(self, line):
         new_line = line
-        if line and 'deployment_size' in line:
+        if line and 'deployment_size' in line and 'nsx_manager' not in line:
             value = line.split('=')[-1].strip(" \"'")
             var_name = line.split('=')[0]
             new_line = '%s=%s' % (var_name, value.upper())
