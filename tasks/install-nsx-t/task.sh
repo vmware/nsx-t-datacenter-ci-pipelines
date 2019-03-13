@@ -61,6 +61,25 @@ function check_status_up {
 	return
 }
 
+function modify_ansible_tasks_for_unified_appliance {
+
+    sed -i 's/Deploy controller/Deploy controller-manager/g' basic_topology.yml
+
+    # ctlr-manager deployment is uses nsxt_controller_manager_auto_deployment module
+    sed -i 's/nsxt_controllers/nsxt_controller_manager_auto_deployment/g' basic_topology.yml
+    sed -i 's/roles: CONTROLLER/roles: [CONTROLLER, MANAGER]/g' basic_topology.yml
+
+    # nsxt_controller_manager_auto_deployment module uses vc_name rather than id
+    sed -i 's/vc_id/vc_name/g; s/compute_manager.id/compute_manager_name/g' basic_topology.yml
+
+    # Clustering config is deprecated as of 2.4.0
+    sed -i '/clustering_config/,+3 d' basic_topology.yml
+
+    # DNS server needs to be specified for static IPs
+    DNS_SERVER="\"{{hostvars[\'localhost\'].dns_server}}\""
+    sed -i "/hostvars\[item\].prefix_length/a \ \ \ \ \ \ \ \ \ \ \ \ dns_servers: [$DNS_SERVER]" basic_topology.yml
+}
+
 DEBUG=""
 if [ "$enable_ansible_debug_int" == "true" ]; then
   DEBUG="-vvv"
@@ -74,14 +93,7 @@ cp hosts.out ${PIPELINE_DIR}/nsxt_yaml/basic_topology.yml ${PIPELINE_DIR}/nsxt_y
 cd nsxt-ansible
 
 if [[ "$unified_appliance_int" == "true" ]]; then
-    sed -i 's/Deploy controller/Deploy controller-manager/g' basic_topology.yml
-    sed -i 's/nsxt_controllers/nsxt_controller_manager_auto_deployment/g' basic_topology.yml
-    sed -i 's/roles: CONTROLLER/roles: [CONTROLLER, MANAGER]/g' basic_topology.yml
-    sed -i 's/vc_id/vc_name/g; s/compute_manager.id/compute_manager_name/g' basic_topology.yml
-    sed -i '/clustering_config/d; /clustering_type/d; /shared_secret/d; /join_to_existing_cluster/d' basic_topology.yml
-    DNS_SERVER_LINE="\- \"{{hostvars[\'localhost\'].dns_server}}\""
-    sed -i "/hostvars\[item\].prefix_length/a \ \ \ \ \ \ \ \ \ \ \ \ dns_servers: " basic_topology.yml
-    sed -i "/dns_servers:/a \ \ \ \ \ \ \ \ \ \ \ \ $DNS_SERVER_LINE" basic_topology.yml
+    modify_ansible_tasks_for_unified_appliance
 fi
 
 # Deploy the ovas if its not up
