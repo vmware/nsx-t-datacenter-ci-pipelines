@@ -76,8 +76,7 @@ function modify_ansible_tasks_for_unified_appliance {
     sed -i '/clustering_config/,+3 d' basic_topology.yml
 
     # DNS server needs to be specified for static IPs
-    DNS_SERVER="\"{{hostvars[\'localhost\'].dns_server}}\""
-    sed -i "/hostvars\[item\].prefix_length/a \ \ \ \ \ \ \ \ \ \ \ \ dns_servers: [$DNS_SERVER]" basic_topology.yml
+    python modify_options.py
 }
 
 DEBUG=""
@@ -91,6 +90,7 @@ python get_mo_ref_id.py --host $vcenter_ip_int --user $vcenter_username_int --pa
 
 cp hosts.out ${PIPELINE_DIR}/nsxt_yaml/basic_topology.yml ${PIPELINE_DIR}/nsxt_yaml/vars.yml nsxt-ansible/
 cd nsxt-ansible
+cp ${PIPELINE_DIR}/tasks/install-nsx-t/modify_options.py ./
 
 if [[ "$unified_appliance_int" == "true" ]]; then
     modify_ansible_tasks_for_unified_appliance
