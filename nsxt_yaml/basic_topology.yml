@@ -2,6 +2,7 @@
 - hosts: 127.0.0.1
   connection: local
   become: yes
+  gather_facts: yes
   vars_files:
     - vars.yml
   tasks:
@@ -49,6 +50,160 @@
     - name: Generate NSX self-signed certificate if it doens't exist
       command: python nsx_t_gen.py --router_config false --generate_cert true
 
+    # TODO: does not support tag
+    - name: Create Transport Zones
+      nsxt_transport_zones:
+        hostname: "{{hostvars['localhost'].nsx_manager_ip}}"
+        username: "{{hostvars['localhost'].nsx_manager_username}}"
+        password: "{{hostvars['localhost'].nsx_manager_password}}"
+        validate_certs: False
+        resource_type: "TransportZone"
+        display_name: "{{item.display_name}}"
+        description: "NSX {{item.transport_type}} Transport Zone"
+        transport_type: "{{item.transport_type}}"
+        host_switch_name: "{{item.host_switch_name}}"
+        state: "present"
+      with_items:
+      - "{{transportzones}}"
+
+    - name: Create uplink profile
+      nsxt_uplink_profiles:
+        hostname: "{{hostvars['localhost'].nsx_manager_ip}}"
+        username: "{{hostvars['localhost'].nsx_manager_username}}"
+        password: "{{hostvars['localhost'].nsx_manager_password}}"
+        validate_certs: False
+        resource_type: UplinkHostSwitchProfile
+        display_name: "{{item.display_name}}"
+        mtu: 1600
+        teaming: "{{item.teaming}}"
+        transport_vlan: "{{item.transport_vlan}}"
+        state: "present"
+      with_items:
+      - "{{uplink_profiles}}"
+
+    # # TODO: support tags
+    - name: Create VTEP IP pool
+      nsxt_ip_pools:
+        hostname: "{{hostvars['localhost'].nsx_manager_ip}}"
+        username: "{{hostvars['localhost'].nsx_manager_username}}"
+        password: "{{hostvars['localhost'].nsx_manager_password}}"
+        validate_certs: False
+        display_name: "{{vtep_ip_pool_name}}"
+        subnets:
+        - cidr: "{{hostvars['localhost'].vtep_ip_pool_cidr}}"
+          allocation_ranges:
+          - start: "{{ hostvars['localhost'].vtep_ip_pool_start }}"
+            end: "{{ hostvars['localhost'].vtep_ip_pool_end }}"
+          gateway_ip: "{{hostvars['localhost'].vtep_ip_pool_gateway}}"
+        state: present
+      register: vtep_pool_object
+
+    - name: Deploy compute manager
+      nsxt_fabric_compute_managers:
+        hostname: "{{hostvars['localhost'].nsx_manager_ip}}"
+        username: "{{hostvars['localhost'].nsx_manager_username}}"
+        password: "{{hostvars['localhost'].nsx_manager_password}}"
+        validate_certs: False
+        display_name: "{{compute_manager_name}}"
+        server: "{{hostvars['localhost'].vcenter_ip}}" # vCenter IP
+        origin_type: vCenter
+        credential:
+          credential_type: UsernamePasswordLoginCredential
+          username: "{{hostvars['localhost'].compute_manager_username}}"
+          password: "{{hostvars['localhost'].compute_manager_password}}"
+        state: present
+      register: compute_manager
+
+    # TODO: change var names
+    - name: Deploy compute manager 2
+      nsxt_fabric_compute_managers:
+        hostname: "{{hostvars['localhost'].nsx_manager_ip}}"
+        username: "{{hostvars['localhost'].nsx_manager_username}}"
+        password: "{{hostvars['localhost'].nsx_manager_password}}"
+        validate_certs: False
+        display_name: "{{compute_manager_2_name}}"
+        server: "{{hostvars['localhost'].compute_manager_2_vcenter_ip}}"
+        origin_type: vCenter
+        credential:
+          credential_type: UsernamePasswordLoginCredential
+          username: "{{hostvars['localhost'].compute_manager_2_username}}"
+          password: "{{hostvars['localhost'].compute_manager_2_password}}"
+        state: present
+      register: compute_manager_2_compute_cluster
+      when:
+      - hostvars['localhost'].compute_manager_2_vcenter_ip is defined
+      - hostvars['localhost'].compute_manager_2_username is defined
+      - hostvars['localhost'].compute_manager_2_password is defined
+
+    - name: debugging tenant_edge_clusters
+      debug:
+        msg: "{{ hostvars['localhost']['tenant_edge_clusters'] | flatten }}"
+
+    - name: Add Edge VM as transport node
+      nsxt_transport_nodes:
+        hostname: "{{hostvars['localhost'].nsx_manager_ip}}"
+        username: "{{hostvars['localhost'].nsx_manager_username}}"
+        password: "{{hostvars['localhost'].nsx_manager_password}}"
+        validate_certs: False
+        resource_type: "TransportNode"
+        display_name: "{{hostvars[item].transport_node_name}}"
+        description: Edge Transport Node for {{hostvars[item].ip}}
+        host_switch_spec:
+          resource_type: StandardHostSwitchSpec
+          host_switches:
+          - host_switch_profiles:
+            - name: "{{edge_uplink_prof}}"
+              type: UplinkHostSwitchProfile
+            host_switch_name: "{{overlay_host_switch}}"
+            pnics:
+            - device_name: fp-eth1
+              uplink_name: "{{uplink_1_name}}"
+            ip_assignment_spec:
+              resource_type: StaticIpPoolSpec
+              ip_pool_name: "{{vtep_ip_pool_name}}"
+          - host_switch_profiles:
+            - name: "{{edge_uplink_prof}}"
+              type: UplinkHostSwitchProfile
+            host_switch_name: "{{vlan_host_switch}}"
+            pnics:
+            - device_name: fp-eth0
+              uplink_name: "{{uplink_1_name}}"
+        transport_zone_endpoints:
+        - transport_zone_name: "{{overlay_transport_zone}}"
+        - transport_zone_name: "{{vlan_transport_zone}}"
+        node_deployment_info:
+          resource_type: "EdgeNode"
+          display_name: "{{hostvars[item].hostname}}"
+          ip_addresses:
+          - "{{hostvars[item].ip}}"
+          deployment_config:
+            form_factor: "{{hostvars[item].edge_deployment_size}}"
+            node_user_settings:
+              cli_password: "{{hostvars[item].edge_cli_password}}"
+              root_password: "{{hostvars[item].edge_root_password}}"
+            vm_deployment_config:
+              placement_type: VsphereDeploymentConfig
+              vc_name: "{{compute_manager_name}}"
+              data_network_ids:
+              - "{{hostvars[item].vc_uplink_network_for_edge}}"
+              - "{{hostvars[item].vc_overlay_network_for_edge}}"
+              - "{{hostvars[item].vc_management_network_for_edge}}"
+              management_network_id: "{{hostvars[item].vc_management_network_for_edge}}"
+              hostname: "{{hostvars[item].hostname}}"
+              compute_id: "{{hostvars[item].vc_cluster_for_edge}}"
+              storage_id: "{{hostvars[item].vc_datastore_for_edge}}"
+              default_gateway_addresses:
+              - "{{hostvars[item].default_gateway}}"
+              management_port_subnets:
+              - ip_addresses:
+                - "{{hostvars[item].ip}}"
+                prefix_length: "{{hostvars[item].prefix_length}}"
+              enable_ssh: "{{hostvars['localhost'].nsx_manager_ssh_enabled}}"
+        state: present
+      with_items:
+      - "{{ groups['edge_nodes'] }}"
+      - "{{ hostvars['localhost']['tenant_edge_clusters'] | flatten }}"
+
     - name: Wait 2 minutes before accessing NSX Manager API
       pause: minutes=2
 
@@ -89,43 +244,6 @@
         force_basic_auth: yes
         validate_certs: no
       when: iu_status.json.runtime_state != "running"
-
-    - name: Deploy compute manager
-      nsxt_fabric_compute_managers:
-        hostname: "{{hostvars['localhost'].nsx_manager_ip}}"
-        username: "{{hostvars['localhost'].nsx_manager_username}}"
-        password: "{{hostvars['localhost'].nsx_manager_password}}"
-        validate_certs: False
-        display_name: "{{compute_manager_name}}"
-        server: "{{hostvars['localhost'].vcenter_ip}}" # vCenter IP
-        origin_type: vCenter
-        credential:
-          credential_type: UsernamePasswordLoginCredential
-          username: "{{hostvars['localhost'].compute_manager_username}}"
-          password: "{{hostvars['localhost'].compute_manager_password}}"
-        state: present
-      register: compute_manager
-
-    # TODO: change var names
-    - name: Deploy compute manager 2
-      nsxt_fabric_compute_managers:
-        hostname: "{{hostvars['localhost'].nsx_manager_ip}}"
-        username: "{{hostvars['localhost'].nsx_manager_username}}"
-        password: "{{hostvars['localhost'].nsx_manager_password}}"
-        validate_certs: False
-        display_name: "{{compute_manager_2_name}}"
-        server: "{{hostvars['localhost'].compute_manager_2_vcenter_ip}}"
-        origin_type: vCenter
-        credential:
-          credential_type: UsernamePasswordLoginCredential
-          username: "{{hostvars['localhost'].compute_manager_2_username}}"
-          password: "{{hostvars['localhost'].compute_manager_2_password}}"
-        state: present
-      register: compute_manager_2_compute_cluster
-      when:
-        - hostvars['localhost'].compute_manager_2_vcenter_ip is defined
-        - hostvars['localhost'].compute_manager_2_username is defined
-        - hostvars['localhost'].compute_manager_2_password is defined
 
     - name: Install pyvmomi tools dependency
       shell: "cd /tmp; git clone https://github.com/vmware/pyvmomi-community-samples.git; cp -r pyvmomi-community-samples/samples/tools /usr/local/lib/python2.7/dist-packages"
@@ -179,70 +297,8 @@
       shell: I=0; while ! ping -c 1 -W 2 {{hostvars[item].ip}}; do I=$(( I + 1 )); [ $I -gt 60 ] && exit 1; done; exit 0
       with_items: "{{groups['controllers']}}"
 
-    - name: Add Edge VM as transport node
-      nsxt_transport_nodes:
-        hostname: "{{hostvars['localhost'].nsx_manager_ip}}"
-        username: "{{hostvars['localhost'].nsx_manager_username}}"
-        password: "{{hostvars['localhost'].nsx_manager_password}}"
-        validate_certs: False
-        resource_type: "TransportNode"
-        display_name: "{{hostvars[item].transport_node_name}}"
-        description: Edge Transport Node for {{hostvars[item].ip}}
-        host_switch_spec:
-          resource_type: StandardHostSwitchSpec
-          host_switches:
-          - host_switch_profiles:
-            - name: "{{edge_uplink_prof}}"
-              type: UplinkHostSwitchProfile
-            host_switch_name: "{{overlay_host_switch}}"
-            pnics:
-            - device_name: fp-eth1
-              uplink_name: "{{uplink_1_name}}"
-            ip_assignment_spec:
-              resource_type: StaticIpPoolSpec
-              ip_pool_name: "{{vtep_ip_pool_name}}"
-          - host_switch_profiles:
-            - name: "{{edge_uplink_prof}}"
-              type: UplinkHostSwitchProfile
-            host_switch_name: "{{vlan_host_switch}}"
-            pnics:
-            - device_name: fp-eth0
-              uplink_name: "{{uplink_1_name}}"
-        transport_zone_endpoints:
-        - transport_zone_name: "{{overlay_transport_zone}}"
-        - transport_zone_name: "{{vlan_transport_zone}}"
-        node_deployment_info:
-          resource_type: "EdgeNode"
-          display_name: "{{hostvars[item].hostname}}"
-          ip_addresses:
-          - "{{hostvars[item].ip}}"
-          deployment_config:
-            form_factor: "{{hostvars[item].edge_deployment_size}}"
-            node_user_settings:
-              cli_password: "{{hostvars[item].edge_cli_password}}"
-              root_password: "{{hostvars[item].edge_root_password}}"
-            vm_deployment_config:
-              placement_type: VsphereDeploymentConfig
-              vc_id: "{{compute_manager.id}}"
-              data_network_ids:
-              - "{{hostvars[item].vc_uplink_network_for_edge}}"
-              - "{{hostvars[item].vc_overlay_network_for_edge}}"
-              - "{{hostvars[item].vc_management_network_for_edge}}"
-              management_network_id: "{{hostvars[item].vc_management_network_for_edge}}"
-              hostname: "{{hostvars[item].hostname}}"
-              compute_id: "{{hostvars[item].vc_cluster_for_edge}}"
-              storage_id: "{{hostvars[item].vc_datastore_for_edge}}"
-              default_gateway_addresses:
-              - "{{hostvars[item].default_gateway}}"
-              management_port_subnets:
-              - ip_addresses:
-                - "{{hostvars[item].ip}}"
-                prefix_length: "{{hostvars[item].prefix_length}}"
-              enable_ssh: "{{hostvars['localhost'].nsx_manager_ssh_enabled}}"
-        state: present
-      with_items:
-      - "{{groups['edge_nodes']}}"
-
     - name: Wait 120 seconds for edge nodes to become reachable
       shell: I=0; while ! ping -c 1 -W 2 {{hostvars[item].ip}}; do I=$(( I + 1 )); [ $I -gt 60 ] && exit 1; done; exit 0
-      with_items: "{{groups['edge_nodes']}}"
+      with_items:
+      - "{{groups['edge_nodes']}}"
+      - "{{hostvars['tenant_edge_clusters'].list}}"

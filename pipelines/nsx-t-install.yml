@@ -62,6 +62,10 @@ nsx_t_gen_params: &nsx-t-gen-params
   vc_uplink_network_for_edge_int: ((vc_uplink_network_for_edge))
   vc_overlay_network_for_edge_int: ((vc_overlay_network_for_edge))
   vc_management_network_for_edge_int: ((vc_management_network_for_edge))
+
+  tenant_edge_clusters_int: ((tenant_edge_clusters))
+  tenant_t0s_int: ((tenant_t0s))
+
   clusters_to_install_nsx_int: ((clusters_to_install_nsx))
   per_cluster_vlans_int: ((per_cluster_vlans))
   esx_ips_int: ((esx_ips))
@@ -88,6 +92,9 @@ nsx_t_gen_params: &nsx-t-gen-params
   nsx_t_nat_rules_spec_int: ((nsx_t_nat_rules_spec))
   nsx_t_csr_request_spec_int: ((nsx_t_csr_request_spec))
   nsx_t_lbr_spec_int: ((nsx_t_lbr_spec))
+
+  inter_t0_ls_name_int: ((inter_t0_ls_name))
+  inter_t0_cidr: ((inter_t0_cidr))
 
 groups:
 

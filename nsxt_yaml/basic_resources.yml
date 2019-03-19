@@ -20,73 +20,39 @@
   vars_files:
     - vars.yml
   tasks:
-    # TODO: does not support tag
-    - name: Create Transport Zones
-      nsxt_transport_zones:
-        hostname: "{{hostvars['localhost'].nsx_manager_ip}}"
-        username: "{{hostvars['localhost'].nsx_manager_username}}"
-        password: "{{hostvars['localhost'].nsx_manager_password}}"
-        validate_certs: False
-        resource_type: "TransportZone"
-        display_name: "{{item.display_name}}"
-        description: "NSX {{item.transport_type}} Transport Zone"
-        transport_type: "{{item.transport_type}}"
-        host_switch_name: "{{item.host_switch_name}}"
-        state: "present"
-      with_items:
-        - "{{transportzones}}"
-
-    - name: Create uplink profile
-      nsxt_uplink_profiles:
-        hostname: "{{hostvars['localhost'].nsx_manager_ip}}"
-        username: "{{hostvars['localhost'].nsx_manager_username}}"
-        password: "{{hostvars['localhost'].nsx_manager_password}}"
-        validate_certs: False
-        resource_type: UplinkHostSwitchProfile
-        display_name: "{{item.display_name}}"
-        mtu: 1600
-        teaming: "{{item.teaming}}"
-        transport_vlan: "{{item.transport_vlan}}"
-        state: "present"
-      with_items:
-        - "{{uplink_profiles}}"
-
-# # TODO: support tags
-    - name: Create VTEP IP pool
-      nsxt_ip_pools:
-        hostname: "{{hostvars['localhost'].nsx_manager_ip}}"
-        username: "{{hostvars['localhost'].nsx_manager_username}}"
-        password: "{{hostvars['localhost'].nsx_manager_password}}"
-        validate_certs: False
-        display_name: "{{vtep_ip_pool_name}}"
-        subnets:
-        - cidr: "{{hostvars['localhost'].vtep_ip_pool_cidr}}"
-          allocation_ranges:
-          - start: "{{ hostvars['localhost'].vtep_ip_pool_start }}"
-            end: "{{ hostvars['localhost'].vtep_ip_pool_end }}"
-          gateway_ip: "{{hostvars['localhost'].vtep_ip_pool_gateway}}"
-        state: present
-      register: vtep_pool_object
 
 ###############################################################################
 # Edge cluster
 ###############################################################################
     - name: Define edge cluster members
       set_fact:
-        edge_members: "{{edge_members|default([]) + [ { 'transport_node_name': hostvars[item].transport_node_name } ] }}"
+        shared_edge_members: "{{shared_edge_members|default([]) + [ { 'transport_node_name': hostvars[item].transport_node_name } ] }}"
       with_items:
         - "{{groups['edge_nodes']}}"
 
-    - name: NSX-T Edge Cluster
+    - name: Tenant NSX-T Edge Clusters
       nsxt_edge_clusters:
         hostname: "{{hostvars['localhost'].nsx_manager_ip}}"
         username: "{{hostvars['localhost'].nsx_manager_username}}"
         password: "{{hostvars['localhost'].nsx_manager_password}}"
         display_name: "{{ edge_cluster_name }}"
         validate_certs: False
-        members: "{{ edge_members }}"
+        members: "{{ hostvars[item].members }}"
         state: present
-      register: edge_cluster
+      with_items:
+      - "{{ groups['tenant_edge_cluster_members'] }}"
+      register: tenant_edge_clusters
+
+    - name: Create shared NSX-T Edge Cluster
+      nsxt_edge_clusters:
+        hostname: "{{hostvars['localhost'].nsx_manager_ip}}"
+        username: "{{hostvars['localhost'].nsx_manager_username}}"
+        password: "{{hostvars['localhost'].nsx_manager_password}}"
+        display_name: "{{ edge_cluster_name }}"
+        validate_certs: False
+        members: "{{ shared_edge_members }}"
+        state: present
+      register: shared_edge_cluster
 
 ###############################################################################
 # Configure compute clusters for auto NSX install
@@ -201,35 +167,83 @@
         - groups['esx_hosts'] is defined
 
 ###############################################################################
-# Tier 0 Router
+# Tier 0 Routers
 ###############################################################################
-    - name: NSX-T T0 Logical Router
+    - name: NSX-T Shared T0 Logical Router
       nsxt_logical_routers:
         hostname: "{{hostvars['localhost'].nsx_manager_ip}}"
         username: "{{hostvars['localhost'].nsx_manager_username}}"
         password: "{{hostvars['localhost'].nsx_manager_password}}"
         validate_certs: False
         resource_type: LogicalRouter
-        description: "NSX-T T0 Logical Router"
-        display_name: "{{hostvars['localhost'].tier0_router_name}}"
-        edge_cluster_name: "{{ edge_cluster_name }}"
+        description: "NSX-T Shared T0 Logical Router"
+        display_name: "{{hostvars['shared_t0'].tier0_router_name}}"
+        edge_cluster_name: "{{edge_cluster_name}}"
         router_type: TIER0
         high_availability_mode: ACTIVE_STANDBY
         state: present
-      register: t0
+      register: shared_t0
 
-    - name: Add static routes
+    - name: NSX-T Tenant T0 Logical Routers
+      nsxt_logical_routers:
+        hostname: "{{hostvars['localhost'].nsx_manager_ip}}"
+        username: "{{hostvars['localhost'].nsx_manager_username}}"
+        password: "{{hostvars['localhost'].nsx_manager_password}}"
+        validate_certs: False
+        resource_type: LogicalRouter
+        description: "{{hostvars[item].description}}"
+        display_name: "{{hostvars[item].tier0_router_name}}"
+        edge_cluster_name: "{{hostvars[item].edge_cluster_name}}"
+        router_type: TIER0
+        high_availability_mode: ACTIVE_STANDBY
+        state: present
+      with_items:
+      - "{{groups[tenant_t0s]}}"
+      # Per Ansible documentation, After using register with a loop, the data structure placed in the variable
+      # will contain a results attribute that is a list of all responses from the module.
+      # https://docs.ansible.com/ansible/2.4/playbooks_loops.html
+      register: tenant_t0s
+
+      ## TODO: this need to be refactored
+    - name: Add static routes on shared T0
       nsxt_logical_router_static_routes:
         hostname: "{{hostvars['localhost'].nsx_manager_ip}}"
         username: "{{hostvars['localhost'].nsx_manager_username}}"
         password: "{{hostvars['localhost'].nsx_manager_password}}"
         validate_certs: False
-        logical_router_id: "{{t0.id}}"
+        logical_router_id: "{{shared_t0.id}}"
         next_hops:
         - administrative_distance: '1'
-          ip_address: "{{hostvars['localhost'].tier0_uplink_next_hop_ip}}"
+          ip_address: "{{hostvars['shared_t0'].tier0_uplink_next_hop_ip}}"
+        network: #TODO: mgmt network cidr
+        state: present
+
+    - name: Add static routes for 0.0.0.0 on shared T0
+      nsxt_logical_router_static_routes:
+        hostname: "{{hostvars['localhost'].nsx_manager_ip}}"
+        username: "{{hostvars['localhost'].nsx_manager_username}}"
+        password: "{{hostvars['localhost'].nsx_manager_password}}"
+        validate_certs: False
+        logical_router_id: "{{shared_t0.id}}"
+        next_hops:
+        - administrative_distance: '1'
+          ip_address: "{{hostvars['shared_t0'].tier0_uplink_next_hop_ip}}"
         network: 0.0.0.0/0
         state: present
+
+    - name: Add static routes for 0.0.0.0 on tenant T0s
+      nsxt_logical_router_static_routes:
+        hostname: "{{hostvars['localhost'].nsx_manager_ip}}"
+        username: "{{hostvars['localhost'].nsx_manager_username}}"
+        password: "{{hostvars['localhost'].nsx_manager_password}}"
+        validate_certs: False
+        logical_router_id: "{{item.0.id}}"
+        next_hops:
+        - administrative_distance: '1'
+          ip_address: "{{item.1.tier0_uplink_next_hop_ip}}"
+        network: 0.0.0.0/0
+        state: present
+      loop: "{{ tenant_t0s.results|zip(hostvars['tenant_t0s'])|list }}"
 
     - name: Create VLAN logical switch
       nsxt_logical_switches:
@@ -272,6 +286,7 @@
         linked_logical_switch_port_id:
           target_type: LogicalPort
           target_id: "{{vlan_lsp.id}}"
+        # Subnet field is not required
         subnets:
         - ip_addresses:
           - "{{hostvars['localhost'].tier0_uplink_port_ip}}"

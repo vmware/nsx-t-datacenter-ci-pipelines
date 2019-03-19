@@ -1,5 +1,7 @@
 #!/bin/bash
 
+export FUNCTIONS_DIR=$(cd $PIPELINE_DIR/functions && pwd)
+
 function create_controller_hosts {
   echo "[controllers]" > ctrl_vms
   # outer paren converts string to an array
@@ -113,11 +115,10 @@ function set_list_var_and_strip_whitespaces {
 }
 
 function create_hosts {
+  # TODO: set nsx manager fqdn
+  export NSX_T_MANAGER_SHORT_HOSTNAME=$(echo "$NSX_T_MANAGER_FQDN" | awk -F '\.' '{print $1}')
 
-# TODO: set nsx manager fqdn
-export NSX_T_MANAGER_SHORT_HOSTNAME=$(echo "$NSX_T_MANAGER_FQDN" | awk -F '\.' '{print $1}')
-
-cat > hosts <<-EOF
+  cat > hosts <<-EOF
 [localhost]
 localhost       ansible_connection=local
 
@@ -154,11 +155,6 @@ vtep_ip_pool_gateway="$vtep_ip_pool_gateway_int"
 vtep_ip_pool_start="$vtep_ip_pool_start_int"
 vtep_ip_pool_end="$vtep_ip_pool_end_int"
 
-tier0_router_name="$tier0_router_name_int"
-tier0_uplink_port_ip="$tier0_uplink_port_ip_int"
-tier0_uplink_port_subnet="$tier0_uplink_port_subnet_int"
-tier0_uplink_next_hop_ip="$tier0_uplink_next_hop_ip_int"
-
 resource_reservation_off="$resource_reservation_off_int"
 nsx_manager_ssh_enabled="$nsx_manager_ssh_enabled_int"
 unified_appliance="$unified_appliance_int"
@@ -170,12 +166,33 @@ EOF
     echo "nsx_manager_role=nsx-manager" >> hosts
   fi
 
+  python ${FUNCTIONS_DIR}/create_tenant_resources.py --resource cluster_spec
+  cat cluster_spec >> hosts
+  rm cluster_spec
+
   set_list_var_and_strip_whitespaces esx_available_vmnic_int hosts
   set_list_var_and_strip_whitespaces clusters_to_install_nsx_int hosts
   set_list_var_and_strip_whitespaces per_cluster_vlans_int hosts
 
-  optional_params=("tier0_ha_vip_int" "tier0_uplink_port_ip_2_int" "compute_manager_2_username_int" "compute_manager_2_password_int" "compute_manager_2_vcenter_ip_int")
+  optional_params=("compute_manager_2_username_int" "compute_manager_2_password_int" "compute_manager_2_vcenter_ip_int")
   for param in "${optional_params[@]}"; do
+    param_val="${!param}"
+    if [[ $param_val != "" && $param_val != "null" ]]; then
+      echo "${param::-4}=${param_val}" >> hosts
+    fi
+  done
+
+  cat >> hosts <<-EOF
+
+[shared_t0]
+tier0_router_name="$tier0_router_name_int"
+tier0_uplink_port_ip="$tier0_uplink_port_ip_int"
+tier0_uplink_port_subnet="$tier0_uplink_port_subnet_int"
+tier0_uplink_next_hop_ip="$tier0_uplink_next_hop_ip_int"
+EOF
+
+  t0_optional_params=("tier0_ha_vip_int" "tier0_uplink_port_ip_2_int")
+  for param in "${t0_optional_params[@]}"; do
     param_val="${!param}"
     if [[ $param_val != "" && $param_val != "null" ]]; then
       echo "${param::-4}=${param_val}" >> hosts
@@ -184,12 +201,17 @@ EOF
 
   create_edge_hosts
   create_controller_hosts
+  python ${FUNCTIONS_DIR}/create_tenant_resources.py --resource edge_t0_spec
 
   cat ctrl_vms >> hosts
   echo "" >> hosts
   cat edge_vms >> hosts
+  echo "" >> hosts
+  cat tenant_edges >> hosts
+  echo "" >> hosts
+  cat tenant_t0s >> hosts
 
-  rm ctrl_vms edge_vms
+  rm ctrl_vms edge_vms tenant_edges tenant_t0s
 
   if [[ $esx_ips_int != ""  &&  $esx_ips_int != "null" ]]; then
     create_esx_hosts

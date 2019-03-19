@@ -7,10 +7,7 @@ from pyVim.connect import SmartConnectNoSSL, Disconnect
 
 import argparse
 import atexit
-import getpass
-import json
 import sys
-
 import pdb
 
 CLUSTER = 'cluster'
@@ -25,8 +22,10 @@ HOST_ID_FIELDS = [
     'vc_datastore_for_controller', 'vc_management_network_for_controller'
 ]
 
+
 class NoMoRefIdFoundError(Exception):
     pass
+
 
 def get_args():
     parser = argparse.ArgumentParser(
@@ -56,6 +55,7 @@ def get_args():
     args = parser.parse_args()
     return args
 
+
 class MoRefIdRetriever(object):
 
     def __init__(self):
@@ -71,7 +71,8 @@ class MoRefIdRetriever(object):
         self.mo_id_set = set()
         self.vc_objects = self._get_container_view_for_datacenter()
 
-    def _get_content(self):
+    @staticmethod
+    def _get_content():
         args = get_args()
         si = SmartConnectNoSSL(host=args.host, user=args.user,
                                pwd=args.password, port=args.port)
@@ -85,7 +86,8 @@ class MoRefIdRetriever(object):
         content = si.RetrieveContent()
         return content
 
-    def parse_mo_ref_id_from_obj(self, vc_object):
+    @staticmethod
+    def parse_mo_ref_id_from_obj(vc_object):
         return str(vc_object).strip(" \"'").split(':')[1]
 
     def build_mapping_for_vc_obj_type(self, vc_object_list, mapping):
@@ -164,14 +166,32 @@ class HostsFileWriter(object):
         self.current_datacenter = None
 
     def modify_line_if_matched(self, line):
+        params = line.split(' ')
+
+        remove = []
+        for i, e in reversed(list(enumerate(params))):
+            if i != 0 and '=' not in e:
+                params[i - 1] += ' %s' % params[i]
+                remove.append(i)
+        for idx in sorted(remove, reverse=True):
+            del params[idx]
+
+        new_line = ""
+        for param in params:
+            new_param = self.modify_param_if_matched(param)
+            if new_param:
+                new_line += '%s ' % new_param
+        return new_line
+
+    def modify_param_if_matched(self, param):
         try:
             id_var_name = next(id_var_name for id_var_name in
-                               self.ids_to_replace if id_var_name in line)
+                               self.ids_to_replace if id_var_name in param)
             print "found variable %s that needs to be converted to moRefId" % id_var_name
         except StopIteration:
-            return line
+            return param
 
-        id_value = line.split('=')[-1].strip(" \"'")
+        id_value = param.split('=')[-1].strip(" \"'")
         if id_var_name.startswith('vc_datacenter_'):
             self.current_datacenter = id_value
             print "found datacenter specified as %s" % id_value
@@ -180,10 +200,11 @@ class HostsFileWriter(object):
         vc_object_type = id_var_name.split('_')[-3]
         # pdb.set_trace()
         mo_id = self.mo_id_retriever.get_mo_id(self.current_datacenter, vc_object_type, id_value)
-        new_line = '%s=%s' % (id_var_name, mo_id)
-        return new_line
+        new_param = '%s=%s' % (id_var_name, mo_id)
+        return new_param
 
-    def modify_deploy_size_if_matched(self, line):
+    @staticmethod
+    def modify_deploy_size_if_matched(line):
         new_line = line
         if line and 'deployment_size' in line and 'nsx_manager' not in line:
             value = line.split('=')[-1].strip(" \"'")
@@ -191,7 +212,8 @@ class HostsFileWriter(object):
             new_line = '%s=%s' % (var_name, value.upper())
         return new_line
 
-    def modify_ssh_enabled_if_matched(self, line):
+    @staticmethod
+    def modify_ssh_enabled_if_matched(line):
         new_line = line
         if line and 'ssh_enabled' in line:
             value = line.split('=')[-1].strip(" \"'")
@@ -205,6 +227,9 @@ class HostsFileWriter(object):
         lines = []
         with open(self.in_file, 'r') as f:
             for line in f:
+                if line == '' or line == '\n':
+                    lines.append(line)
+                    continue
                 new_line = self.modify_line_if_matched(line.strip())
                 new_line = self.modify_deploy_size_if_matched(new_line)
                 new_line = self.modify_ssh_enabled_if_matched(new_line)
@@ -213,6 +238,7 @@ class HostsFileWriter(object):
 
         with open(self.out_file, 'w') as f:
             f.writelines(lines)
+
 
 if __name__ == "__main__":
     mr = MoRefIdRetriever()
