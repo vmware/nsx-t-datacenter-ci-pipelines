@@ -41,9 +41,9 @@ IP_POOL = 'IP_POOL'
 
 
 def init():
-    nsx_mgr_ip          = os.getenv('nsx_manager_ips_int').split(',')[0].strip()
-    nsx_mgr_user        = os.getenv('nsx_manager_username_int', 'admin')
-    nsx_mgr_pwd         = os.getenv('nsx_manager_password_int')
+    nsx_mgr_ip = os.getenv('nsx_manager_ip_int')
+    nsx_mgr_user = os.getenv('nsx_manager_username_int', 'admin')
+    nsx_mgr_pwd = os.getenv('nsx_manager_password_int')
 
     nsx_mgr_context = {
         'admin_user': nsx_mgr_user,

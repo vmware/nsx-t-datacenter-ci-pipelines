@@ -2,6 +2,7 @@
 - hosts: 127.0.0.1
   connection: local
   become: yes
+  gather_facts: yes
   vars_files:
     - vars.yml
   tasks:
@@ -49,46 +50,53 @@
     - name: Generate NSX self-signed certificate if it doens't exist
       command: python nsx_t_gen.py --router_config false --generate_cert true
 
-    - name: Wait 2 minutes before accessing NSX Manager API
-      pause: minutes=2
-
-    - name: Wait for Manager API server to be up
-      shell: "last=1; while [ $last -ne 0 ]; do curl -s -o /dev/null -ku '{{hostvars['localhost'].nsx_manager_username}}:{{hostvars['localhost'].nsx_manager_password}}' https://{{hostvars['localhost'].nsx_manager_ip}}/api/v1/trust-management/certificates --connect-timeout 5; last=$?; echo \"waiting for NSX Manager to come up\"; done"
-
-    # this should've been enabled already
-    - name: Enable install-upgrade service
-      uri:
-        method: PUT
-        url: https://{{hostvars['localhost'].nsx_manager_ip}}/api/v1/node/services/install-upgrade
-        user: "{{hostvars['localhost'].nsx_manager_username}}"
+    # TODO: does not support tag
+    - name: Create Transport Zones
+      nsxt_transport_zones:
+        hostname: "{{hostvars['localhost'].nsx_manager_ip}}"
+        username: "{{hostvars['localhost'].nsx_manager_username}}"
         password: "{{hostvars['localhost'].nsx_manager_password}}"
-        body:
-          service_name: "install-upgrade"
-          service_properties:
-            enabled: True
-        body_format: json
-        force_basic_auth: yes
-        validate_certs: no
+        validate_certs: False
+        resource_type: "TransportZone"
+        display_name: "{{item.display_name}}"
+        description: "NSX {{item.transport_type}} Transport Zone"
+        transport_type: "{{item.transport_type}}"
+        host_switch_name: "{{item.host_switch_name}}"
+        state: "present"
+      with_items:
+      - "{{transportzones}}"
 
-    - name: Get install-upgrade service status
-      uri:
-        method: GET
-        url: https://{{hostvars['localhost'].nsx_manager_ip}}/api/v1/node/services/install-upgrade/status
-        user: "{{hostvars['localhost'].nsx_manager_username}}"
+    - name: Create uplink profile
+      nsxt_uplink_profiles:
+        hostname: "{{hostvars['localhost'].nsx_manager_ip}}"
+        username: "{{hostvars['localhost'].nsx_manager_username}}"
         password: "{{hostvars['localhost'].nsx_manager_password}}"
-        force_basic_auth: yes
-        validate_certs: no
-      register: iu_status
+        validate_certs: False
+        resource_type: UplinkHostSwitchProfile
+        display_name: "{{item.display_name}}"
+        mtu: 1600
+        teaming: "{{item.teaming}}"
+        transport_vlan: "{{item.transport_vlan}}"
+        state: "present"
+      with_items:
+      - "{{uplink_profiles}}"
 
-    - name: Restart install-upgrade service if it's not running
-      uri:
-        method: POST
-        url: https://{{hostvars['localhost'].nsx_manager_ip}}/api/v1/node/services/install-upgrade?action=restart
-        user: "{{hostvars['localhost'].nsx_manager_username}}"
+    # # TODO: support tags
+    - name: Create VTEP IP pool
+      nsxt_ip_pools:
+        hostname: "{{hostvars['localhost'].nsx_manager_ip}}"
+        username: "{{hostvars['localhost'].nsx_manager_username}}"
         password: "{{hostvars['localhost'].nsx_manager_password}}"
-        force_basic_auth: yes
-        validate_certs: no
-      when: iu_status.json.runtime_state != "running"
+        validate_certs: False
+        display_name: "{{vtep_ip_pool_name}}"
+        subnets:
+        - cidr: "{{hostvars['localhost'].vtep_ip_pool_cidr}}"
+          allocation_ranges:
+          - start: "{{ hostvars['localhost'].vtep_ip_pool_start }}"
+            end: "{{ hostvars['localhost'].vtep_ip_pool_end }}"
+          gateway_ip: "{{hostvars['localhost'].vtep_ip_pool_gateway}}"
+        state: present
+      register: vtep_pool_object
 
     - name: Wait 2 minutes before deploying compute manager
       pause: minutes=2
@@ -129,166 +137,13 @@
         state: present
       register: compute_manager_2_compute_cluster
       when:
-        - hostvars['localhost'].compute_manager_2_vcenter_ip is defined
-        - hostvars['localhost'].compute_manager_2_username is defined
-        - hostvars['localhost'].compute_manager_2_password is defined
+      - hostvars['localhost'].compute_manager_2_vcenter_ip is defined
+      - hostvars['localhost'].compute_manager_2_username is defined
+      - hostvars['localhost'].compute_manager_2_password is defined
 
-    - name: Install pyvmomi tools dependency
-      shell: "cd /tmp; git clone https://github.com/vmware/pyvmomi-community-samples.git; cp -r pyvmomi-community-samples/samples/tools /usr/local/lib/python2.7/dist-packages"
-      when:
-        - hostvars['localhost'].resource_reservation_off == "true"
-
-    - name: Turn off memory reservation for additional controller-managers and power them on
-      command: python turn_off_reservation.py --host {{hostvars['localhost'].vcenter_ip}} --user {{hostvars['localhost'].vcenter_username}} --password {{hostvars['localhost'].vcenter_password}} --vm_list {{hostvars[item].hostname}}
-      with_items:
-        - "{{groups['controllers']}}"
-      when:
-        - groups['controllers'] is defined
-        - hostvars['localhost'].resource_reservation_off == "true"
-
-    - name: Turn off memory reservation for edge nodes and power them on
-      command: python turn_off_reservation.py --host {{hostvars['localhost'].vcenter_ip}} --user {{hostvars['localhost'].vcenter_username}} --password {{hostvars['localhost'].vcenter_password}} --vm_list {{hostvars[item].hostname}}
-      with_items:
-        - "{{groups['edge_nodes']}}"
-      when:
-        - hostvars['localhost'].resource_reservation_off == "true"
-
-    - name: Deploy additional controller-managers
-      nsxt_controller_manager_auto_deployment:
-        hostname: "{{hostvars['localhost'].nsx_manager_ip}}"
-        username: "{{hostvars['localhost'].nsx_manager_username}}"
-        password: "{{hostvars['localhost'].nsx_manager_password}}"
-        validate_certs: False
-        deployment_requests:
-        - roles: [CONTROLLER, MANAGER]
-          form_factor: "{{hostvars['localhost'].nsx_manager_deployment_size.upper()}}"
-          user_settings:
-            cli_password: "{{hostvars['localhost'].nsx_manager_cli_pwd}}"
-            root_password: "{{hostvars['localhost'].nsx_manager_root_pwd}}"
-          deployment_config:
-            placement_type: VsphereClusterNodeVMDeploymentConfig
-            vc_name: "{{compute_manager_name}}"
-            management_network_id: "{{hostvars['localhost'].vc_management_network_for_deployment}}"
-            hostname: "{{hostvars[item].hostname}}"
-            compute_id: "{{hostvars['localhost'].vc_cluster_for_deployment}}"
-            storage_id: "{{hostvars['localhost'].vc_datastore_for_deployment}}"
-            default_gateway_addresses:
-            - "{{hostvars[item].default_gateway}}"
-            management_port_subnets:
-            - ip_addresses:
-              - "{{hostvars[item].ip}}"
-              prefix_length: "{{hostvars[item].prefix_length}}"
-            enable_ssh: "{{hostvars['localhost'].nsx_manager_ssh_enabled}}"
-        state: present
-      with_items: "{{groups['controllers']}}"
-      when: groups['controllers'] is defined
-      register: controller_response
-
-    - name: Install ping
-      apt:
-        name: iputils-ping
-        state: present
-
-    - name: Wait 120 seconds for controllers to become reachable
-      shell: I=0; while ! ping -c 1 -W 2 {{hostvars[item].ip}}; do I=$(( I + 1 )); [ $I -gt 60 ] && exit 1; done; exit 0
-      with_items: "{{groups['controllers']}}"
-      when: groups['controllers'] is defined
-
-      # TODO: does not support tag
-    - name: Create Transport Zones
-      nsxt_transport_zones:
-        hostname: "{{hostvars['localhost'].nsx_manager_ip}}"
-        username: "{{hostvars['localhost'].nsx_manager_username}}"
-        password: "{{hostvars['localhost'].nsx_manager_password}}"
-        validate_certs: False
-        resource_type: "TransportZone"
-        display_name: "{{item.display_name}}"
-        description: "NSX {{item.transport_type}} Transport Zone"
-        transport_type: "{{item.transport_type}}"
-        host_switch_name: "{{item.host_switch_name}}"
-        state: "present"
-      with_items:
-      - "{{transportzones}}"
-
-    - name: Create uplink profile
-      nsxt_uplink_profiles:
-        hostname: "{{hostvars['localhost'].nsx_manager_ip}}"
-        username: "{{hostvars['localhost'].nsx_manager_username}}"
-        password: "{{hostvars['localhost'].nsx_manager_password}}"
-        validate_certs: False
-        resource_type: UplinkHostSwitchProfile
-        display_name: "{{item.display_name}}"
-        mtu: 1600
-        teaming: "{{item.teaming}}"
-        transport_vlan: "{{item.transport_vlan}}"
-        state: "present"
-      with_items:
-      - "{{uplink_profiles}}"
-
-      # # TODO: support tags
-    - name: Create VTEP IP pool
-      nsxt_ip_pools:
-        hostname: "{{hostvars['localhost'].nsx_manager_ip}}"
-        username: "{{hostvars['localhost'].nsx_manager_username}}"
-        password: "{{hostvars['localhost'].nsx_manager_password}}"
-        validate_certs: False
-        display_name: "{{vtep_ip_pool_name}}"
-        subnets:
-        - cidr: "{{hostvars['localhost'].vtep_ip_pool_cidr}}"
-          allocation_ranges:
-          - start: "{{ hostvars['localhost'].vtep_ip_pool_start }}"
-            end: "{{ hostvars['localhost'].vtep_ip_pool_end }}"
-          gateway_ip: "{{hostvars['localhost'].vtep_ip_pool_gateway}}"
-        state: present
-      register: vtep_pool_object
-
-      # TODO: does not support tag
-    - name: Create Transport Zones
-      nsxt_transport_zones:
-        hostname: "{{hostvars['localhost'].nsx_manager_ip}}"
-        username: "{{hostvars['localhost'].nsx_manager_username}}"
-        password: "{{hostvars['localhost'].nsx_manager_password}}"
-        validate_certs: False
-        resource_type: "TransportZone"
-        display_name: "{{item.display_name}}"
-        description: "NSX {{item.transport_type}} Transport Zone"
-        transport_type: "{{item.transport_type}}"
-        host_switch_name: "{{item.host_switch_name}}"
-        state: "present"
-      with_items:
-      - "{{transportzones}}"
-
-    - name: Create uplink profile
-      nsxt_uplink_profiles:
-        hostname: "{{hostvars['localhost'].nsx_manager_ip}}"
-        username: "{{hostvars['localhost'].nsx_manager_username}}"
-        password: "{{hostvars['localhost'].nsx_manager_password}}"
-        validate_certs: False
-        resource_type: UplinkHostSwitchProfile
-        display_name: "{{item.display_name}}"
-        mtu: 1600
-        teaming: "{{item.teaming}}"
-        transport_vlan: "{{item.transport_vlan}}"
-        state: "present"
-      with_items:
-      - "{{uplink_profiles}}"
-
-      # # TODO: support tags
-    - name: Create VTEP IP pool
-      nsxt_ip_pools:
-        hostname: "{{hostvars['localhost'].nsx_manager_ip}}"
-        username: "{{hostvars['localhost'].nsx_manager_username}}"
-        password: "{{hostvars['localhost'].nsx_manager_password}}"
-        validate_certs: False
-        display_name: "{{vtep_ip_pool_name}}"
-        subnets:
-        - cidr: "{{hostvars['localhost'].vtep_ip_pool_cidr}}"
-          allocation_ranges:
-          - start: "{{ hostvars['localhost'].vtep_ip_pool_start }}"
-            end: "{{ hostvars['localhost'].vtep_ip_pool_end }}"
-          gateway_ip: "{{hostvars['localhost'].vtep_ip_pool_gateway}}"
-        state: present
-      register: vtep_pool_object
+    - name: debugging tenant_edge_clusters
+      debug:
+        msg: "{{ hostvars['localhost']['tenant_edge_clusters'] | flatten }}"
 
     - name: Add Edge VM as transport node
       nsxt_transport_nodes:
@@ -352,8 +207,104 @@
               enable_ssh: "{{hostvars['localhost'].nsx_manager_ssh_enabled}}"
         state: present
       with_items:
-      - "{{groups['edge_nodes']}}"
+      - "{{ groups['edge_nodes'] }}"
+      - "{{ hostvars['localhost']['tenant_edge_clusters'] | flatten }}"
+
+    - name: Wait 2 minutes before accessing NSX Manager API
+      pause: minutes=2
+
+    - name: Wait for Manager API server to be up
+      shell: "last=1; while [ $last -ne 0 ]; do curl -s -o /dev/null -ku '{{hostvars['localhost'].nsx_manager_username}}:{{hostvars['localhost'].nsx_manager_password}}' https://{{hostvars['localhost'].nsx_manager_ip}}/api/v1/trust-management/certificates --connect-timeout 5; last=$?; echo \"waiting for NSX Manager to come up\"; done"
+
+    # this should've been enabled already
+    - name: Enable install-upgrade service
+      uri:
+        method: PUT
+        url: https://{{hostvars['localhost'].nsx_manager_ip}}/api/v1/node/services/install-upgrade
+        user: "{{hostvars['localhost'].nsx_manager_username}}"
+        password: "{{hostvars['localhost'].nsx_manager_password}}"
+        body:
+          service_name: "install-upgrade"
+          service_properties:
+            enabled: True
+        body_format: json
+        force_basic_auth: yes
+        validate_certs: no
+
+    - name: Get install-upgrade service status
+      uri:
+        method: GET
+        url: https://{{hostvars['localhost'].nsx_manager_ip}}/api/v1/node/services/install-upgrade/status
+        user: "{{hostvars['localhost'].nsx_manager_username}}"
+        password: "{{hostvars['localhost'].nsx_manager_password}}"
+        force_basic_auth: yes
+        validate_certs: no
+      register: iu_status
+
+    - name: Restart install-upgrade service if it's not running
+      uri:
+        method: POST
+        url: https://{{hostvars['localhost'].nsx_manager_ip}}/api/v1/node/services/install-upgrade?action=restart
+        user: "{{hostvars['localhost'].nsx_manager_username}}"
+        password: "{{hostvars['localhost'].nsx_manager_password}}"
+        force_basic_auth: yes
+        validate_certs: no
+      when: iu_status.json.runtime_state != "running"
+
+    - name: Install pyvmomi tools dependency
+      shell: "cd /tmp; git clone https://github.com/vmware/pyvmomi-community-samples.git; cp -r pyvmomi-community-samples/samples/tools /usr/local/lib/python2.7/dist-packages"
+      when:
+        - hostvars['localhost'].resource_reservation_off == "true"
+
+    - name: Turn off memory reservation for controllers and edge nodes and power them on
+      command: python turn_off_reservation.py --host {{hostvars['localhost'].vcenter_ip}} --user {{hostvars['localhost'].vcenter_username}} --password {{hostvars['localhost'].vcenter_password}} --vm_list {{hostvars[item].hostname}}
+      with_items:
+        - "{{groups['controllers']}}"
+        - "{{groups['edge_nodes']}}"
+      when:
+        - hostvars['localhost'].resource_reservation_off == "true"
+
+    - name: Deploy additional controller-managers
+      nsxt_controller_manager_auto_deployment:
+        hostname: "{{hostvars['localhost'].nsx_manager_ip}}"
+        username: "{{hostvars['localhost'].nsx_manager_username}}"
+        password: "{{hostvars['localhost'].nsx_manager_password}}"
+        validate_certs: False
+        deployment_requests:
+        - roles: [CONTROLLER, MANAGER]
+          form_factor: "{{hostvars[item].controller_deployment_size}}"
+          user_settings:
+            cli_password: "{{hostvars[item].controller_cli_password}}"
+            root_password: "{{hostvars[item].controller_root_password}}"
+          deployment_config:
+            placement_type: VsphereClusterNodeVMDeploymentConfig
+            vc_name: "{{compute_manager_name}}"
+            management_network_id: "{{hostvars[item].vc_management_network_for_controller}}"
+            hostname: "{{hostvars[item].hostname}}"
+            compute_id: "{{hostvars[item].vc_cluster_for_controller}}"
+            storage_id: "{{hostvars[item].vc_datastore_for_controller}}"
+            default_gateway_addresses:
+            - "{{hostvars[item].default_gateway}}"
+            management_port_subnets:
+            - ip_addresses:
+              - "{{hostvars[item].ip}}"
+              prefix_length: "{{hostvars[item].prefix_length}}"
+            enable_ssh: "{{hostvars['localhost'].nsx_manager_ssh_enabled}}"
+        state: present
+      with_items: "{{groups['controllers']}}"
+      register: controller_response
+
+    - name: Install ping
+      apt:
+        name: iputils-ping
+        state: present
+
+    - name: Wait 120 seconds for controllers to become reachable
+      shell: I=0; while ! ping -c 1 -W 2 {{hostvars[item].ip}}; do I=$(( I + 1 )); [ $I -gt 60 ] && exit 1; done; exit 0
+      with_items: "{{groups['controllers']}}"
 
     - name: Wait 120 seconds for edge nodes to become reachable
       shell: I=0; while ! ping -c 1 -W 2 {{hostvars[item].ip}}; do I=$(( I + 1 )); [ $I -gt 60 ] && exit 1; done; exit 0
-      with_items: "{{groups['edge_nodes']}}"
+      with_items:
+      - "{{groups['edge_nodes']}}"
+      - "{{hostvars['tenant_edge_clusters'].list}}"

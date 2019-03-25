@@ -9,6 +9,7 @@ transportzones:
 - display_name: "{{overlay_transport_zone}}"
   transport_type: "OVERLAY"
   host_switch_name: "{{overlay_host_switch}}" # will create one with this name
+
 - display_name: "{{vlan_transport_zone}}"
   transport_type: "VLAN"
   host_switch_name: "{{vlan_host_switch}}"
@@ -38,6 +39,7 @@ uplink_profiles:
       uplink_type: PNIC
     policy: FAILOVER_ORDER
   transport_vlan: "{{hostvars['localhost'].edge_uplink_profile_vlan}}"
+
 - display_name: "{{host_uplink_prof}}"
   description: "Host Overlay Profile"
   teaming: "{{common_teaming_spec_for_esx}}"
@@ -47,8 +49,6 @@ edge_cluster_name: "edge-cluster-1"
 
 vlan_logical_switch: "uplink-vlan-ls"
 vlan_logical_switch_vlan: 0
-t0_uplink_port_ip: 172.60.0.1
-t0_uplink_port_subnet: 24
 
 single_pnic_list:
 - device_name: "{{hostvars['localhost'].esx_available_vmnic[0]}}"
