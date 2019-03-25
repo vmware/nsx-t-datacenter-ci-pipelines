@@ -61,24 +61,6 @@ function check_status_up {
 	return
 }
 
-function modify_ansible_tasks_for_unified_appliance {
-
-    sed -i 's/Deploy controller/Deploy controller-manager/g' basic_topology.yml
-
-    # ctlr-manager deployment is uses nsxt_controller_manager_auto_deployment module
-    sed -i 's/nsxt_controllers/nsxt_controller_manager_auto_deployment/g' basic_topology.yml
-    sed -i 's/roles: CONTROLLER/roles: [CONTROLLER, MANAGER]/g' basic_topology.yml
-
-    # nsxt_controller_manager_auto_deployment module uses vc_name rather than id
-    sed -i 's/vc_id/vc_name/g; s/compute_manager.id/compute_manager_name/g' basic_topology.yml
-
-    # Clustering config is deprecated as of 2.4.0
-    sed -i '/clustering_config/,+3 d' basic_topology.yml
-
-    # DNS server needs to be specified for static IPs
-    python modify_options.py
-}
-
 DEBUG=""
 if [ "$enable_ansible_debug_int" == "true" ]; then
   DEBUG="-vvv"
@@ -93,7 +75,8 @@ cd nsxt-ansible
 cp ${PIPELINE_DIR}/tasks/install-nsx-t/modify_options.py ./
 
 if [[ "$unified_appliance_int" == "true" ]]; then
-    modify_ansible_tasks_for_unified_appliance
+    # DNS server needs to be specified for static IPs
+    python modify_options.py
 fi
 
 # Deploy the ovas if its not up

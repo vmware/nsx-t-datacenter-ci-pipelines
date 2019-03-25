@@ -11,7 +11,7 @@ def add_dns_server_option():
             leading_spaces = len(line) - len(line.lstrip()) - 2
             dns_line = ' ' * leading_spaces
             if ',' not in dns_servers_spec:
-                dns_line += "dns_servers: \"{{hostvars['localhost'].dns_server}}\""
+                dns_line += "dns_servers: [\"{{hostvars['localhost'].dns_server}}\"]"
             else:
                 dns_servers = dns_servers_spec.split(', ')
                 dns_line += "dns_servers:"
