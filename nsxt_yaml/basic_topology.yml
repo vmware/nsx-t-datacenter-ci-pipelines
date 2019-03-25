@@ -140,21 +140,21 @@
       when:
         - hostvars['localhost'].resource_reservation_off == "true"
 
-    - name: Deploy controller
-      nsxt_controllers:
+    - name: Deploy additional controller-managers
+      nsxt_controller_manager_auto_deployment:
         hostname: "{{hostvars['localhost'].nsx_manager_ip}}"
         username: "{{hostvars['localhost'].nsx_manager_username}}"
         password: "{{hostvars['localhost'].nsx_manager_password}}"
         validate_certs: False
         deployment_requests:
-        - roles: CONTROLLER
+        - roles: [CONTROLLER, MANAGER]
           form_factor: "{{hostvars[item].controller_deployment_size}}"
           user_settings:
             cli_password: "{{hostvars[item].controller_cli_password}}"
             root_password: "{{hostvars[item].controller_root_password}}"
           deployment_config:
             placement_type: VsphereClusterNodeVMDeploymentConfig
-            vc_id: "{{compute_manager.id}}"
+            vc_name: "{{compute_manager_name}}"
             management_network_id: "{{hostvars[item].vc_management_network_for_controller}}"
             hostname: "{{hostvars[item].hostname}}"
             compute_id: "{{hostvars[item].vc_cluster_for_controller}}"
@@ -166,10 +166,6 @@
               - "{{hostvars[item].ip}}"
               prefix_length: "{{hostvars[item].prefix_length}}"
             enable_ssh: "{{hostvars['localhost'].nsx_manager_ssh_enabled}}"
-        clustering_config:
-          clustering_type: ControlClusteringConfig
-          shared_secret: "{{hostvars[item].controller_shared_secret}}"
-          join_to_existing_cluster: false
         state: present
       with_items: "{{groups['controllers']}}"
       register: controller_response
@@ -182,45 +178,6 @@
     - name: Wait 120 seconds for controllers to become reachable
       shell: I=0; while ! ping -c 1 -W 2 {{hostvars[item].ip}}; do I=$(( I + 1 )); [ $I -gt 60 ] && exit 1; done; exit 0
       with_items: "{{groups['controllers']}}"
-
-    - name: Add Edge VM as fabric node
-      # nsxt_fabric_nodes has been deprecated as of 2.4.0
-      nsxt_fabric_nodes:
-        hostname: "{{hostvars['localhost'].nsx_manager_ip}}"
-        username: "{{hostvars['localhost'].nsx_manager_username}}"
-        password: "{{hostvars['localhost'].nsx_manager_password}}"
-        validate_certs: False
-        resource_type: "EdgeNode"
-        display_name: "{{hostvars[item].hostname}}"
-        ip_addresses:
-          - "{{hostvars[item].ip}}"
-        deployment_config:
-          form_factor: "{{hostvars[item].edge_deployment_size}}"
-          node_user_settings:
-            cli_password: "{{hostvars[item].edge_cli_password}}"
-            root_password: "{{hostvars[item].edge_root_password}}"
-          vm_deployment_config:
-            placement_type: VsphereDeploymentConfig
-            vc_id: "{{compute_manager.id}}"
-            data_network_ids:
-            - "{{hostvars[item].vc_uplink_network_for_edge}}"
-            - "{{hostvars[item].vc_overlay_network_for_edge}}"
-            - "{{hostvars[item].vc_management_network_for_edge}}"
-            management_network_id: "{{hostvars[item].vc_management_network_for_edge}}"
-            hostname: "{{hostvars[item].hostname}}"
-            compute_id: "{{hostvars[item].vc_cluster_for_edge}}"
-            storage_id: "{{hostvars[item].vc_datastore_for_edge}}"
-            default_gateway_addresses:
-            - "{{hostvars[item].default_gateway}}"
-            management_port_subnets:
-            - ip_addresses:
-              - "{{hostvars[item].ip}}"
-              prefix_length: "{{hostvars[item].prefix_length}}"
-            enable_ssh: "{{hostvars['localhost'].nsx_manager_ssh_enabled}}"
-        state: "present"
-      with_items: "{{groups['edge_nodes']}}"
-      when:
-      - hostvars['localhost'].unified_appliance == false
 
     - name: Add Edge VM as transport node
       nsxt_transport_nodes:
@@ -285,8 +242,6 @@
         state: present
       with_items:
       - "{{groups['edge_nodes']}}"
-      when:
-      - hostvars['localhost'].unified_appliance == true
 
     - name: Wait 120 seconds for edge nodes to become reachable
       shell: I=0; while ! ping -c 1 -W 2 {{hostvars[item].ip}}; do I=$(( I + 1 )); [ $I -gt 60 ] && exit 1; done; exit 0
