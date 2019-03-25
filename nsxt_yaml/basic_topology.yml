@@ -2,6 +2,7 @@
 - hosts: 127.0.0.1
   connection: local
   become: yes
+  gather_facts: yes
   vars_files:
     - vars.yml
   tasks:
@@ -89,9 +90,6 @@
         force_basic_auth: yes
         validate_certs: no
       when: iu_status.json.runtime_state != "running"
-
-    - name: Wait 2 minutes before deploying compute manager
-      pause: minutes=2
 
     - name: Deploy compute manager
       nsxt_fabric_compute_managers:
@@ -194,8 +192,8 @@
       with_items: "{{groups['controllers']}}"
       when: groups['controllers'] is defined
 
-      # TODO: does not support tag
-    - name: Create Transport Zones
+    # TODO: does not support tag
+    - name: Create Overlay Transport Zones
       nsxt_transport_zones:
         hostname: "{{hostvars['localhost'].nsx_manager_ip}}"
         username: "{{hostvars['localhost'].nsx_manager_username}}"
@@ -210,7 +208,36 @@
       with_items:
       - "{{transportzones}}"
 
-    - name: Create uplink profile
+    - name: Create VLAN Transport Zones
+      nsxt_transport_zones:
+        hostname: "{{hostvars['localhost'].nsx_manager_ip}}"
+        username: "{{hostvars['localhost'].nsx_manager_username}}"
+        password: "{{hostvars['localhost'].nsx_manager_password}}"
+        validate_certs: False
+        resource_type: "TransportZone"
+        display_name: "{{hostvars[item].vlan_logical_switch_name}}_tz"
+        description: "Transport Zone for VLAN {{hostvars[item].external_connectivity_vlan}}"
+        transport_type: "VLAN"
+        host_switch_name: "{{hostvars[item].vlan_logical_switch_name}}_hostswitch"
+        state: "present"
+      with_items:
+      - "{{ groups['tier0_routers'] }}"
+      register: vlan_tzs
+
+    - name: Create Transport Zone for the inter T0 network
+      nsxt_transport_zones:
+        hostname: "{{hostvars['localhost'].nsx_manager_ip}}"
+        username: "{{hostvars['localhost'].nsx_manager_username}}"
+        password: "{{hostvars['localhost'].nsx_manager_password}}"
+        validate_certs: False
+        resource_type: "TransportZone"
+        display_name: "{{hostvars['localhost'].inter_t0_transport_zone_name}}"
+        description: "Inter-T0 Transport Zone"
+        transport_type: "VLAN"
+        host_switch_name: "{{inter_t0_host_switch}}"
+        state: "present"
+
+    - name: Create shared uplink profiles
       nsxt_uplink_profiles:
         hostname: "{{hostvars['localhost'].nsx_manager_ip}}"
         username: "{{hostvars['localhost'].nsx_manager_username}}"
@@ -225,7 +252,23 @@
       with_items:
       - "{{uplink_profiles}}"
 
-      # # TODO: support tags
+    - name: Create uplink profiles for tenants, if specified
+      nsxt_uplink_profiles:
+        hostname: "{{hostvars['localhost'].nsx_manager_ip}}"
+        username: "{{hostvars['localhost'].nsx_manager_username}}"
+        password: "{{hostvars['localhost'].nsx_manager_password}}"
+        validate_certs: False
+        resource_type: UplinkHostSwitchProfile
+        display_name: "{{hostvars[item].edge_uplink_profile_name}}"
+        mtu: 1600
+        teaming: "{{common_teaming_spec_for_edge}}"
+        transport_vlan: "{{hostvars[item].edge_uplink_profile_vlan}}"
+        state: "present"
+      with_items:
+      - "{{ groups['tenant_edge_cluster_members'] }}"
+      when: hostvars[item].edge_uplink_profile_name is defined
+
+    # # TODO: support tags
     - name: Create VTEP IP pool
       nsxt_ip_pools:
         hostname: "{{hostvars['localhost'].nsx_manager_ip}}"
@@ -242,53 +285,32 @@
         state: present
       register: vtep_pool_object
 
-      # TODO: does not support tag
-    - name: Create Transport Zones
-      nsxt_transport_zones:
+    - name: Create VLAN logical switch for inter T0 network
+      nsxt_logical_switches:
         hostname: "{{hostvars['localhost'].nsx_manager_ip}}"
         username: "{{hostvars['localhost'].nsx_manager_username}}"
         password: "{{hostvars['localhost'].nsx_manager_password}}"
         validate_certs: False
-        resource_type: "TransportZone"
-        display_name: "{{item.display_name}}"
-        description: "NSX {{item.transport_type}} Transport Zone"
-        transport_type: "{{item.transport_type}}"
-        host_switch_name: "{{item.host_switch_name}}"
-        state: "present"
-      with_items:
-      - "{{transportzones}}"
-
-    - name: Create uplink profile
-      nsxt_uplink_profiles:
-        hostname: "{{hostvars['localhost'].nsx_manager_ip}}"
-        username: "{{hostvars['localhost'].nsx_manager_username}}"
-        password: "{{hostvars['localhost'].nsx_manager_password}}"
-        validate_certs: False
-        resource_type: UplinkHostSwitchProfile
-        display_name: "{{item.display_name}}"
-        mtu: 1600
-        teaming: "{{item.teaming}}"
-        transport_vlan: "{{item.transport_vlan}}"
-        state: "present"
-      with_items:
-      - "{{uplink_profiles}}"
-
-      # # TODO: support tags
-    - name: Create VTEP IP pool
-      nsxt_ip_pools:
-        hostname: "{{hostvars['localhost'].nsx_manager_ip}}"
-        username: "{{hostvars['localhost'].nsx_manager_username}}"
-        password: "{{hostvars['localhost'].nsx_manager_password}}"
-        validate_certs: False
-        display_name: "{{vtep_ip_pool_name}}"
-        subnets:
-        - cidr: "{{hostvars['localhost'].vtep_ip_pool_cidr}}"
-          allocation_ranges:
-          - start: "{{ hostvars['localhost'].vtep_ip_pool_start }}"
-            end: "{{ hostvars['localhost'].vtep_ip_pool_end }}"
-          gateway_ip: "{{hostvars['localhost'].vtep_ip_pool_gateway}}"
+        display_name: "{{hostvars['localhost'].inter_t0_logical_switch_name}}"
+        admin_state: UP
+        transport_zone_name: "{{hostvars['localhost'].inter_t0_transport_zone_name}}"
+        vlan: "{{hostvars['localhost'].inter_t0_vlan}}"
         state: present
-      register: vtep_pool_object
+      register: inter_t0_ls
+
+    - name: Create VLAN logical switch for T0 routers
+      nsxt_logical_switches:
+        hostname: "{{hostvars['localhost'].nsx_manager_ip}}"
+        username: "{{hostvars['localhost'].nsx_manager_username}}"
+        password: "{{hostvars['localhost'].nsx_manager_password}}"
+        validate_certs: False
+        display_name: "{{ hostvars[item].vlan_logical_switch_name }}"
+        replication_mode: SOURCE
+        admin_state: UP
+        transport_zone_name: "{{hostvars[item].vlan_logical_switch_name}}_tz"
+        vlan: "{{ hostvars[item].external_connectivity_vlan }}"
+        state: present
+      with_items: "{{ groups['tier0_routers'] }}"
 
     - name: Add Edge VM as transport node
       nsxt_transport_nodes:
@@ -315,13 +337,21 @@
           - host_switch_profiles:
             - name: "{{edge_uplink_prof}}"
               type: UplinkHostSwitchProfile
-            host_switch_name: "{{vlan_host_switch}}"
+            host_switch_name: "{{hostvars[item].vlan_logical_switch_name}}_hostswitch"
             pnics:
             - device_name: fp-eth0
               uplink_name: "{{uplink_1_name}}"
+          - host_switch_profiles:
+            - name: "{{edge_uplink_prof}}"
+              type: UplinkHostSwitchProfile
+            host_switch_name: "{{inter_t0_host_switch}}"
+            pnics:
+            - device_name: fp-eth2
+              uplink_name: "{{uplink_1_name}}"
         transport_zone_endpoints:
         - transport_zone_name: "{{overlay_transport_zone}}"
-        - transport_zone_name: "{{vlan_transport_zone}}"
+        - transport_zone_name: "{{hostvars[item].vlan_logical_switch_name}}_tz"
+        - transport_zone_name: "{{hostvars['localhost'].inter_t0_transport_zone_name}}"
         node_deployment_info:
           resource_type: "EdgeNode"
           display_name: "{{hostvars[item].hostname}}"
@@ -352,8 +382,11 @@
               enable_ssh: "{{hostvars['localhost'].nsx_manager_ssh_enabled}}"
         state: present
       with_items:
-      - "{{groups['edge_nodes']}}"
+      - "{{ groups['edge_nodes'] }}"
+      - "{{ hostvars['localhost']['tenant_edge_clusters'] | flatten }}"
 
     - name: Wait 120 seconds for edge nodes to become reachable
       shell: I=0; while ! ping -c 1 -W 2 {{hostvars[item].ip}}; do I=$(( I + 1 )); [ $I -gt 60 ] && exit 1; done; exit 0
-      with_items: "{{groups['edge_nodes']}}"
+      with_items:
+      - "{{groups['edge_nodes']}}"
+      - "{{ hostvars['localhost']['tenant_edge_clusters'] | flatten }}"

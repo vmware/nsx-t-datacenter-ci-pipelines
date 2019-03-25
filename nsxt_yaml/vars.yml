@@ -4,14 +4,16 @@ overlay_transport_zone: 'overlay-tz'
 overlay_host_switch: "hostswitch-overlay"
 vlan_transport_zone: 'vlan-tz'
 vlan_host_switch: "hostswitch-vlan"
+inter_t0_host_switch: "hostswitch-inter-t0"
 
 transportzones:
 - display_name: "{{overlay_transport_zone}}"
   transport_type: "OVERLAY"
   host_switch_name: "{{overlay_host_switch}}" # will create one with this name
-- display_name: "{{vlan_transport_zone}}"
-  transport_type: "VLAN"
-  host_switch_name: "{{vlan_host_switch}}"
+
+#- display_name: "{{vlan_transport_zone}}"
+#  transport_type: "VLAN"
+#  host_switch_name: "{{vlan_host_switch}}"
 
 vtep_ip_pool_name: tep-ip-pool
 
@@ -20,6 +22,7 @@ host_uplink_prof: host-overlay-uplink-prof
 
 uplink_1_name: "uplink-1"
 uplink_2_name: "uplink-2"
+
 common_teaming_spec_for_esx:
   active_list:
   - uplink_name: "{{uplink_1_name}}"
@@ -29,26 +32,24 @@ common_teaming_spec_for_esx:
     uplink_type: PNIC
   policy: FAILOVER_ORDER
 
+common_teaming_spec_for_edge:
+  active_list:
+  - uplink_name: "{{uplink_1_name}}"
+    uplink_type: PNIC
+  policy: FAILOVER_ORDER
+
 uplink_profiles:
 - display_name: "{{edge_uplink_prof}}"
   description: "Edge Uplink Profile"
-  teaming:
-    active_list:
-    - uplink_name: "{{uplink_1_name}}"
-      uplink_type: PNIC
-    policy: FAILOVER_ORDER
+  teaming: "{{common_teaming_spec_for_edge}}"
   transport_vlan: "{{hostvars['localhost'].edge_uplink_profile_vlan}}"
+
 - display_name: "{{host_uplink_prof}}"
   description: "Host Overlay Profile"
   teaming: "{{common_teaming_spec_for_esx}}"
   transport_vlan: "{{hostvars['localhost'].esxi_uplink_profile_vlan}}"
 
-edge_cluster_name: "edge-cluster-1"
-
-vlan_logical_switch: "uplink-vlan-ls"
-vlan_logical_switch_vlan: 0
-t0_uplink_port_ip: 172.60.0.1
-t0_uplink_port_subnet: 24
+edge_cluster_name: "edge-cluster-0"
 
 single_pnic_list:
 - device_name: "{{hostvars['localhost'].esx_available_vmnic[0]}}"
