@@ -168,6 +168,7 @@
             enable_ssh: "{{hostvars['localhost'].nsx_manager_ssh_enabled}}"
         state: present
       with_items: "{{groups['controllers']}}"
+      when: "{{ groups['controllers'] | length > 0 }}"
       register: controller_response
 
     - name: Install ping
@@ -178,6 +179,54 @@
     - name: Wait 120 seconds for controllers to become reachable
       shell: I=0; while ! ping -c 1 -W 2 {{hostvars[item].ip}}; do I=$(( I + 1 )); [ $I -gt 60 ] && exit 1; done; exit 0
       with_items: "{{groups['controllers']}}"
+
+      # TODO: does not support tag
+    - name: Create Transport Zones
+      nsxt_transport_zones:
+        hostname: "{{hostvars['localhost'].nsx_manager_ip}}"
+        username: "{{hostvars['localhost'].nsx_manager_username}}"
+        password: "{{hostvars['localhost'].nsx_manager_password}}"
+        validate_certs: False
+        resource_type: "TransportZone"
+        display_name: "{{item.display_name}}"
+        description: "NSX {{item.transport_type}} Transport Zone"
+        transport_type: "{{item.transport_type}}"
+        host_switch_name: "{{item.host_switch_name}}"
+        state: "present"
+      with_items:
+      - "{{transportzones}}"
+
+    - name: Create uplink profile
+      nsxt_uplink_profiles:
+        hostname: "{{hostvars['localhost'].nsx_manager_ip}}"
+        username: "{{hostvars['localhost'].nsx_manager_username}}"
+        password: "{{hostvars['localhost'].nsx_manager_password}}"
+        validate_certs: False
+        resource_type: UplinkHostSwitchProfile
+        display_name: "{{item.display_name}}"
+        mtu: 1600
+        teaming: "{{item.teaming}}"
+        transport_vlan: "{{item.transport_vlan}}"
+        state: "present"
+      with_items:
+      - "{{uplink_profiles}}"
+
+      # # TODO: support tags
+    - name: Create VTEP IP pool
+      nsxt_ip_pools:
+        hostname: "{{hostvars['localhost'].nsx_manager_ip}}"
+        username: "{{hostvars['localhost'].nsx_manager_username}}"
+        password: "{{hostvars['localhost'].nsx_manager_password}}"
+        validate_certs: False
+        display_name: "{{vtep_ip_pool_name}}"
+        subnets:
+        - cidr: "{{hostvars['localhost'].vtep_ip_pool_cidr}}"
+          allocation_ranges:
+          - start: "{{ hostvars['localhost'].vtep_ip_pool_start }}"
+            end: "{{ hostvars['localhost'].vtep_ip_pool_end }}"
+          gateway_ip: "{{hostvars['localhost'].vtep_ip_pool_gateway}}"
+        state: present
+      register: vtep_pool_object
 
     - name: Add Edge VM as transport node
       nsxt_transport_nodes:
@@ -223,7 +272,7 @@
               root_password: "{{hostvars[item].edge_root_password}}"
             vm_deployment_config:
               placement_type: VsphereDeploymentConfig
-              vc_id: "{{compute_manager.id}}"
+              vc_name: "{{compute_manager_name}}"
               data_network_ids:
               - "{{hostvars[item].vc_uplink_network_for_edge}}"
               - "{{hostvars[item].vc_overlay_network_for_edge}}"

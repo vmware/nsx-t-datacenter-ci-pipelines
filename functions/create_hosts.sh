@@ -24,20 +24,22 @@ function create_controller_hosts {
     echo "$controller_host" >> ctrl_vms
   done
 
-  cat >> ctrl_vms <<-EOF
+  if [[ $num_controllers -gt 0 ]]; then
+    cat >> ctrl_vms <<-EOF
 [controllers:vars]
 controller_cli_password="$controller_cli_password_int"
 controller_root_password="$controller_root_password_int"
 controller_shared_secret="$controller_shared_secret_int"
 EOF
 
-  for param in "${per_controller_params[@]}"; do
-    # param_val=($(echo "${!param}" | sed -e 's/,/ /g'))
-    param_val="${!param}"
-    # if [[ ${#param_val[@]} -eq 1 ]]; then
-    echo "${param::-4}=${param_val}" >> ctrl_vms
-    # fi
-  done
+    for param in "${per_controller_params[@]}"; do
+        # param_val=($(echo "${!param}" | sed -e 's/,/ /g'))
+        param_val="${!param}"
+        # if [[ ${#param_val[@]} -eq 1 ]]; then
+        echo "${param::-4}=${param_val}" >> ctrl_vms
+        # fi
+    done
+  fi
 
 }
 
