@@ -71,6 +71,8 @@ nsx_t_gen_params: &nsx-t-gen-params
   tier0_uplink_next_hop_ip_int: ((tier0_uplink_next_hop_ip))
   tier0_uplink_port_ip_2_int: ((tier0_uplink_port_ip_2))
   tier0_ha_vip_int: ((tier0_ha_vip))
+  tier0_as_num_int: ((BGP_as_number))
+  inter_tier0_network_ip_int: ((inter_tier0_network_ip))
 
   compute_manager_2_username_int: ((compute_manager_2_username))
   compute_manager_2_password_int: ((compute_manager_2_password))

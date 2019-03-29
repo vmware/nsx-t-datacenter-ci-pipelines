@@ -191,7 +191,7 @@
         password: "{{hostvars['localhost'].nsx_manager_password}}"
         validate_certs: False
         resource_type: LogicalRouter
-        description: "{{hostvars[item].description}}"
+        description: "{{hostvars[item].tier0_router_name}}"
         display_name: "{{hostvars[item].tier0_router_name}}"
         edge_cluster_name: "{{hostvars[item].edge_cluster_name}}"
         router_type: TIER0
