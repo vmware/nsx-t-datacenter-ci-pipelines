@@ -70,6 +70,7 @@ def create_tenant_t0_params():
                                'uplink_port_ip_2',
                                'ha_vip',
                                'edge_cluster',
+                               'inter_tier0_network_ip',
                                'is_tanent',
                                'BGP_as_number']
             for param in params_to_write:

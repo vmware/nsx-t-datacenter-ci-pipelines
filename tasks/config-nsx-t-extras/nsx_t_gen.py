@@ -33,6 +33,7 @@ LBR_PERSISTENCE_PROFILE_ENDPOINT = '%s%s' % (API_VERSION, '/loadbalancer/persist
 
 global_id_map = {}
 cache = {}
+t0_facts = {}
 
 TIER1 = "TIER1"
 TIER0 = "TIER0"
@@ -238,9 +239,9 @@ def create_t0_logical_router_and_port(t0_router):
     subnet = t0_router['subnet']
 
     router_id = create_t0_logical_router(router_name)
-    logical_router_port_id = check_logical_router_port(t0_router_id)
+    logical_router_port_id = check_logical_router_port(router_id)
     if logical_router_port_id is not None:
-        return t0_router_id
+        return router_id
 
     name = "LogicalRouterUplinkPortFor%s" % (router_name)
     descp = "Uplink Port created for %s router" % (router_name)
@@ -605,6 +606,10 @@ def create_ha_switching_profile():
     print('Done creating HASwitchingProfiles\n')
 
 
+##############################
+# Certificates
+##############################
+
 def list_certs():
     csr_request_spec = os.getenv('nsx_t_csr_request_spec_int', '').strip()
     if csr_request_spec == '' or csr_request_spec == 'null':
@@ -707,6 +712,10 @@ def set_t0_route_redistribution():
     print('Done enabling route redistribution for T0Routers\n')
 
 
+##############################
+# T0 NAT Rules
+##############################
+
 def print_t0_route_nat_rules():
     for key in global_id_map:
         if key.startswith('ROUTER:TIER0:'):
@@ -729,7 +738,7 @@ def reset_t0_route_nat_rules():
 
 
 def check_for_existing_rule(existing_nat_rules, new_nat_rule):
-    if (len(existing_nat_rules) == 0):
+    if len(existing_nat_rules) == 0:
         return None
 
     for existing_nat_rule in existing_nat_rules:
@@ -754,17 +763,16 @@ def add_t0_route_nat_rules():
         print('No nat rule entries in the NSX_T_NAT_RULES_SPEC, nothing to add/update!')
         return
 
-    t0_router_id = global_id_map['ROUTER:TIER0:' + nat_rules_defns[0]['t0_router']]
-    if t0_router_id is None:
-        print('Error!! No T0Router found with name: {}'.format(nat_rules_defns[0]['t0_router']))
-        exit - 1
-
-    api_endpoint = '%s/%s/%s' % (ROUTERS_ENDPOINT, t0_router_id, 'nat/rules')
-
     changes_detected = False
-    existing_nat_rules = client.get(api_endpoint).json()['results']
     for nat_rule in nat_rules_defns:
 
+        t0_router_id = global_id_map['ROUTER:TIER0:' + nat_rule['t0_router']]
+        if t0_router_id is None:
+            print('Error!! No T0Router found with name: {}'.format(nat_rule['t0_router']))
+            exit(-1)
+
+        api_endpoint = '%s/%s/%s' % (ROUTERS_ENDPOINT, t0_router_id, 'nat/rules')
+        existing_nat_rules = client.get(api_endpoint).json()['results']
         rule_payload = {
             'resource_type': 'NatRule',
             'enabled': True,
@@ -780,7 +788,7 @@ def add_t0_route_nat_rules():
             rule_payload['match_source_network'] = nat_rule['source_network']
 
         existing_nat_rule = check_for_existing_rule(existing_nat_rules, rule_payload)
-        if None == existing_nat_rule:
+        if existing_nat_rule is None:
             changes_detected = True
             print('Adding new Nat rule: {}'.format(rule_payload))
             resp = client.post(api_endpoint, rule_payload)
@@ -798,6 +806,80 @@ def add_t0_route_nat_rules():
         print('Done adding/updating nat rules for T0Routers!!\n')
     else:
         print('Detected no change with nat rules for T0Routers!!\n')
+
+
+##############################
+# BGP configs
+##############################
+
+def construct_t0_facts():
+    shared_t0_name = os.getenv('tier0_router_name_int', '')
+    shared_t0_as_num = os.getenv('tier0_as_num_int', '')
+    shared_t0_inter_network_addr = os.getenv('inter_tier0_network_ip_int', '')
+    t0_facts.update({shared_t0_name: {'as_num': shared_t0_as_num,
+                                      'inter_t0_addr': shared_t0_inter_network_addr}})
+
+    tanent_t0_specs = os.getenv('tenant_t0s_int')
+    tenant_t0s = yaml.load(tanent_t0_specs)
+    if len(tenant_t0s) > 0:
+        for t0 in tenant_t0s:
+            t0_facts.update({
+                t0['tier0_router_name']:
+                    {'as_num': t0['BGP_as_number'],
+                     'inter_t0_addr': t0['inter_tier0_network_ip']}})
+
+
+def parse_bgp_neighbors(neighbor_configs):
+    parsed_neighbors = []
+    for config in neighbor_configs:
+        if config['type'] == 't0_router':
+            t0_router = config['t0_router_name']
+            if t0_router in t0_facts:
+                neighbor = {'display_name': t0_router,
+                            'neighbor_address': t0_facts[t0_router]['inter_t0_addr'],
+                            'remote_as_num': t0_facts[t0_router]['as_num']}
+                parsed_neighbors.append(neighbor)
+            else:
+                print('Error!! No T0Router found with name: {}'.format(t0_router))
+                exit(-1)
+        elif config['type'] == 'address':
+            neighbor = config.pop('type')
+            parsed_neighbors.append(neighbor)
+
+
+def add_bgp_configs():
+    bgp_specs = os.getenv('nsx_t_t0_bgp_spec_int', '').strip()
+    if bgp_specs == '' or bgp_specs == 'null':
+        print('No yaml payload set for the NSX_T0_BGP_SPEC, ignoring bgp section!')
+        return
+
+    bgp_configs = yaml.load(bgp_specs)['bgp_configs']
+    if bgp_configs is None or len(bgp_configs) <= 0:
+        print('No BGP config entries in the NSX_T0_BGP_SPEC, nothing to add/update!')
+        return
+
+    construct_t0_facts()
+    changes_detected = False
+    for bgp_config in bgp_configs:
+        if bgp_config['t0_router'] in t0_facts:
+            t0_router_id = global_id_map['ROUTER:TIER0:' + bgp_config['t0_router']]
+            if t0_router_id is None:
+                print('Error!! No T0Router found with name: {}'.format(bgp_config['t0_router']))
+                exit(-1)
+
+            api_endpoint = '%s/%s/%s' % (ROUTERS_ENDPOINT, t0_router_id, 'routing/bgp')
+            existing_bgp_configs = client.get(api_endpoint).json()['results']
+            bgp_payload = {
+                'resource_type': 'BgpConfig',
+                'enabled': True,
+                'description': '%s, created by nsx-t-gen!' % bgp_config['display_name'],
+                'display_name': bgp_config['display_name'],
+                'as_num': t0_facts[bgp_config['t0_router']]['as_num']
+            }
+            if bgp_config['community_lists']:
+                bgp_payload.update({'community_lists': bgp_config['community_lists']})
+            if bgp_config['neighbors']:
+                bgp_payload.update({'neighbors': parse_bgp_neighbors(bgp_config['neighbors'])})
 
 
 def load_loadbalancer_monitors():
@@ -983,7 +1065,7 @@ def add_loadbalancers():
         if t1_router_id is None:
             print('Error!! No T1Router found with name: {} referred against LBR: {}'.format(lbr['t1_router'],
                                                                                             lbr['name']))
-            exit - 1
+            exit(-1)
 
         lbr_api_endpoint = LBR_SERVICES_ENDPOINT
         lbr_service_payload = {

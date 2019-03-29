@@ -83,6 +83,7 @@ tier0_uplink_port_subnet: 24
 tier0_uplink_next_hop_ip: 192.168.100.1
 tier0_uplink_port_ip_2: 192.168.100.5
 tier0_ha_vip: 192.168.100.3
+inter_tier0_network_ip: 50.0.0.1
 is_tanent: false
 BGP_as_number: 65200
 
@@ -131,6 +132,7 @@ tenant_t0s:
   uplink_port_ip_2: 192.168.101.5
   ha_vip: 192.168.101.3
   edge_cluster: Edge-Cls-Tenant1 #refer to the edge cluster name set for this T0
+  inter_tier0_network_ip: 50.0.0.2
   is_tanent: true
   BGP_as_number: 65201
 
@@ -141,6 +143,7 @@ tenant_t0s:
   uplink_port_ip_2: 192.168.102.5
   ha_vip: 192.168.102.3
   edge_cluster: Edge-Cls-Tenant2 #refer to the edge cluster name set for this T0
+  inter_tier0_network_ip: 50.0.0.3
   is_tanent: true
   BGP_as_number: 65202
 
