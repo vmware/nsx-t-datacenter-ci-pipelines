@@ -12,7 +12,7 @@
         datastore: "{{hostvars['localhost'].vcenter_datastore}}"
         portgroup: "{{hostvars['localhost'].mgmt_portgroup}}"
         cluster: "{{hostvars['localhost'].vcenter_cluster}}"
-        vmname: "nsxt-manager"
+        vmname: "{{hostvars['localhost'].nsx_manager_assigned_hostname}}-1"
         hostname: "{{hostvars['localhost'].nsx_manager_assigned_hostname}}.{{hostvars['localhost'].dns_domain}}"
         dns_server: "{{hostvars['localhost'].dns_server}}"
         dns_domain: "{{hostvars['localhost'].dns_domain}}"
@@ -21,7 +21,7 @@
         ip_address: "{{hostvars['localhost'].nsx_manager_ip}}"
         netmask: "{{hostvars['localhost'].netmask}}"
         admin_password: "{{hostvars['localhost'].nsx_manager_password}}"
-        cli_password: "{{hostvars['localhost'].nsx_manager_password}}"
+        cli_password: "{{hostvars['localhost'].nsx_manager_cli_pwd}}"
         path_to_ova: "{{hostvars['localhost'].nsx_image_webserver}}"
         ova_file: "{{hostvars['localhost'].ova_file_name}}"
         vcenter: "{{hostvars['localhost'].vcenter_ip}}"
@@ -29,8 +29,8 @@
         vcenter_passwd: "{{hostvars['localhost'].vcenter_password}}"
         deployment_size: "{{hostvars['localhost'].nsx_manager_deployment_size}}"
         role: "{{hostvars['localhost'].nsx_manager_role}}"
-        ssh_enabled: "{{hostvars['localhost'].nsx_manager_ssh_enabled}}"
-        allow_ssh_root_login: "{{hostvars['localhost'].nsx_manager_ssh_enabled}}"
+        ssh_enabled: "{{hostvars['localhost'].controller_manager_ssh_enabled}}"
+        allow_ssh_root_login: "{{hostvars['localhost'].controller_manager_ssh_enabled}}"
       register: ova_deploy_status
 
     - name: Check manager status
@@ -148,24 +148,24 @@
         validate_certs: False
         deployment_requests:
         - roles: [CONTROLLER, MANAGER]
-          form_factor: "{{hostvars[item].controller_deployment_size}}"
+          form_factor: "{{hostvars[item].controller_manager_deployment_size}}"
           user_settings:
-            cli_password: "{{hostvars[item].controller_cli_password}}"
-            root_password: "{{hostvars[item].controller_root_password}}"
+            cli_password: "{{hostvars['localhost'].nsx_manager_cli_password}}"
+            root_password: "{{hostvars['localhost'].nsx_manager_root_password}}"
           deployment_config:
             placement_type: VsphereClusterNodeVMDeploymentConfig
             vc_name: "{{compute_manager_name}}"
-            management_network_id: "{{hostvars[item].vc_management_network_for_controller}}"
+            management_network_id: "{{hostvars[item].controller_mgmt_network}}"
             hostname: "{{hostvars[item].hostname}}"
-            compute_id: "{{hostvars[item].vc_cluster_for_controller}}"
-            storage_id: "{{hostvars[item].vc_datastore_for_controller}}"
+            compute_id: "{{hostvars['localhost'].vcenter_cluster}}"
+            storage_id: "{{hostvars['localhost'].vcenter_datastore}}"
             default_gateway_addresses:
             - "{{hostvars[item].default_gateway}}"
             management_port_subnets:
             - ip_addresses:
               - "{{hostvars[item].ip}}"
               prefix_length: "{{hostvars[item].prefix_length}}"
-            enable_ssh: "{{hostvars['localhost'].nsx_manager_ssh_enabled}}"
+            enable_ssh: "{{hostvars['localhost'].controller_manager_ssh_enabled}}"
         state: present
       with_items: "{{groups['controllers']}}"
       register: controller_response
