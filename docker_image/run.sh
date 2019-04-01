@@ -6,7 +6,6 @@
 # VMWARE_USER
 # VMWARE_PASSWORD
 # NSXT_VERSION
-# PIPELINE_BRANCH
 
 ROOT_WORK_DIR="/home/workspace"
 BIND_MOUNT_DIR="/home/concourse"
@@ -21,8 +20,11 @@ fi
 cd $BIND_MOUNT_DIR
 ova_file_name=$(ls -l *.ova | sed 's/.* nsx/nsx/;s/ova.*/ova/' | tail -n1)
 ovftool_file_name=$(ls -l *.bundle | sed 's/.* VMware-ovftool/VMware-ovftool/;s/bundle.*/bundle/' | tail -n1)
-nsxt_version=2.2.0
-if [[ $NSXT_VERSION != "" ]]; then
+
+nsxt_version=2.3.0
+if [[ $ova_file_name != "" ]]; then
+    nsxt_version=$(echo ${ova_file_name##*-} | head -c5)
+elif [[ $NSXT_VERSION != "" ]]; then
 	nsxt_version=$NSXT_VERSION
 fi
 
@@ -50,15 +52,24 @@ if [[ $ova_file_name == "" ]] || [[ $ovftool_file_name == "" ]]; then
 	set +e
 fi
 
-nsx_t_pipeline_branch=master
-if [[ $PIPELINE_BRANCH != "" ]]; then
-	nsx_t_pipeline_branch=$PIPELINE_BRANCH
+unified_appliance=true
+nsx_t_pipeline_branch=nsxt_2.4.0
+nsxt_ansible_branch=master
+
+version_num=$(echo $nsxt_version | cut -d'.' -f1)
+version_sub_num=$(echo $nsxt_version | cut -d'.' -f2)
+if [[ $version_num -le 2 ]] && [[ $version_sub_num -le 3 ]]; then
+    unified_appliance=false
+    nsx_t_pipeline_branch=nsxt_2.3.0
+    nsxt_ansible_branch=v1.0.0
 fi
 
 pipeline_internal_config="pipeline_config_internal.yml"
 echo "ovftool_file_name: $ovftool_file_name" > $pipeline_internal_config
 echo "ova_file_name: $ova_file_name" >> $pipeline_internal_config
+echo "unified_appliance: $unified_appliance" >> $pipeline_internal_config
 echo "nsx_t_pipeline_branch: $nsx_t_pipeline_branch" >> $pipeline_internal_config
+echo "nsxt_ansible_branch: $nsxt_ansible_branch" >> $pipeline_internal_config
 
 # start a web server to host static files such as ovftool and NSX manager OVA
 docker run --name nginx-server -v ${BIND_MOUNT_DIR}:/usr/share/nginx/html:ro -p ${IMAGE_WEBSERVER_PORT}:80 -d nginx
