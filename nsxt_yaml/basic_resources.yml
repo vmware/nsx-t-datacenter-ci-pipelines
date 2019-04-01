@@ -211,7 +211,7 @@
         username: "{{hostvars['localhost'].nsx_manager_username}}"
         password: "{{hostvars['localhost'].nsx_manager_password}}"
         validate_certs: False
-        logical_router_id: "{{shared_t0.id}}"
+        logical_router_name: "{{hostvars['localhost'].tier0_router_name}}"
         next_hops:
         - administrative_distance: '1'
           ip_address: "{{hostvars['shared_t0'].tier0_uplink_next_hop_ip}}"
@@ -224,7 +224,7 @@
         username: "{{hostvars['localhost'].nsx_manager_username}}"
         password: "{{hostvars['localhost'].nsx_manager_password}}"
         validate_certs: False
-        logical_router_id: "{{shared_t0.id}}"
+        logical_router_name: "{{hostvars['localhost'].tier0_router_name}}"
         next_hops:
         - administrative_distance: '1'
           ip_address: "{{hostvars['shared_t0'].tier0_uplink_next_hop_ip}}"
@@ -237,13 +237,13 @@
         username: "{{hostvars['localhost'].nsx_manager_username}}"
         password: "{{hostvars['localhost'].nsx_manager_password}}"
         validate_certs: False
-        logical_router_id: "{{item.0.id}}"
+        logical_router_name: "{{ item.tier0_router_name }}"
         next_hops:
         - administrative_distance: '1'
-          ip_address: "{{item.1.tier0_uplink_next_hop_ip}}"
+          ip_address: "{{item.tier0_uplink_next_hop_ip}}"
         network: 0.0.0.0/0
         state: present
-      loop: "{{ tenant_t0s.results|zip(hostvars['tenant_t0s'])|list }}"
+      with_items: "{{ groups['tenant_t0s']) }}"
 
     - name: Create VLAN logical switch
       nsxt_logical_switches:
@@ -282,7 +282,7 @@
         validate_certs: False
         display_name: t0_uplink_1
         resource_type: LogicalRouterUpLinkPort
-        logical_router_name: "{{hostvars['localhost'].tier0_router_name}}"
+        logical_router_name: "{{ item.tier0_router_name }}"
         linked_logical_switch_port_id:
           target_type: LogicalPort
           target_id: "{{vlan_lsp.id}}"
@@ -321,7 +321,7 @@
         validate_certs: False
         display_name: t0_uplink_2
         resource_type: LogicalRouterUpLinkPort
-        logical_router_name: "{{hostvars['localhost'].tier0_router_name}}"
+        logical_router_name: "{{ item.tier0_router_name }}"
         linked_logical_switch_port_id:
           target_type: LogicalPort
           target_id: "{{vlan_lsp_2.id}}"

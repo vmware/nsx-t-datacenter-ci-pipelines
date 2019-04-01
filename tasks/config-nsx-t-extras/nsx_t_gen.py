@@ -3,6 +3,7 @@ import os
 import json
 import yaml
 from pprint import pprint
+from operator import itemgetter
 
 import client
 
@@ -809,6 +810,70 @@ def add_t0_route_nat_rules():
 
 
 ##############################
+# IP prefix lists
+##############################
+def check_for_existing_prefix(existing_ip_prefix_list, new_ip_prefix_list):
+    if len(existing_ip_prefix_list) == 0:
+        return None
+
+    for existing_ip_prefix in existing_ip_prefix_list:
+        global_id_map['IP_PREFIX:' + existing_ip_prefix['display_name']] = existing_ip_prefix['id']
+        # Sort the 'prefixes' section by network
+        existing_prefixes, new_prefix = [sorted(l, key=itemgetter('network'))
+                                         for l in (existing_ip_prefix['prefixes'], new_ip_prefix_list['prefixes'])]
+        if not any(x != y for x, y in zip(existing_prefixes, new_prefix)):
+            return existing_ip_prefix.update({'stat': 'duplicate'})
+        elif existing_ip_prefix['display_name'] == new_ip_prefix_list['display_name']:
+            return existing_ip_prefix.update({'stat': 'update'})
+    return None
+
+
+def add_ip_prefix_lists():
+    ip_prefix_specs = os.getenv('nsx_t_ip_prefix_spec_int', '').strip()
+    if ip_prefix_specs == '' or ip_prefix_specs == 'null':
+        print('No yaml payload set for the NSX_T_IP_PREFIX_SPEC, ignoring bgp section!')
+        return
+
+    ip_prefix_lists = yaml.load(ip_prefix_specs)['ip_prefix_lists']
+    if ip_prefix_lists is None or len(ip_prefix_lists) <= 0:
+        print('No prefix list entries in the NSX_T_IP_PREFIX_SPEC, nothing to add/update!')
+        return
+
+    changes_detected = False
+    for prefix_list in ip_prefix_lists:
+        t0_router = prefix_list['t0_router_name']
+        t0_router_id = global_id_map['ROUTER:TIER0:' + t0_router]
+        if t0_router_id is None:
+            print('Error!! No T0Router found with name: {}'.format(t0_router))
+            exit(-1)
+
+        api_endpoint = '%s/%s/%s' % (ROUTERS_ENDPOINT, t0_router_id, 'routing/ip-prefix-lists')
+        existing_ip_prefix_list = client.get(api_endpoint).json()['results']
+        payload = {
+            'resource_type': 'IPPrefixList',
+            'description': prefix_list['description'],
+            'display_name': prefix_list['display_name'],
+            'prefixes': prefix_list['prefixes']
+        }
+        existing_ip_prefix = check_for_existing_prefix(existing_ip_prefix_list, payload)
+        if existing_ip_prefix is None:
+            changes_detected = True
+            print('Adding new IP prefix list: {}'.format(payload))
+            client.post(api_endpoint, payload)
+        elif existing_ip_prefix['stat'] == 'update':
+            changes_detected = True
+            print('Updating IP prefix list with name {}: {}'.format(payload['display_name'], payload))
+            update_api_endpint = '%s%s%s' % (api_endpoint, '/', existing_ip_prefix['id'])
+            client.put(update_api_endpint, payload)
+        else:
+            print('Same IP prefix lists already defined with name {}!'.format(existing_ip_prefix['display_name']))
+    if changes_detected:
+        print('Done adding/updating ip prefix lists for T0Routers!!\n')
+    else:
+        print('Detected no change with ip prefix lists for T0Routers!!\n')
+
+
+##############################
 # BGP configs
 ##############################
 
@@ -829,6 +894,19 @@ def construct_t0_facts():
                      'inter_t0_addr': t0['inter_tier0_network_ip']}})
 
 
+def add_filter_options(config, neighbor):
+    if 'out_filter_ip_prefix' in config:
+        global_map_name = 'IP_PREFIX:' + config['out_filter_ip_prefix']
+        if global_map_name in global_id_map:
+            neighbor.update({'address_families':
+                            [{'type': 'IPV4_UNICAST',
+                              'enabled': True,
+                              'out_filter_ipprefixlist_id': global_id_map[global_map_name]}]})
+        else:
+            print('Error!! No ip prefix list found with name: {}'.format(config['out_filter_ip_prefix']))
+            exit(-1)
+
+
 def parse_bgp_neighbors(neighbor_configs):
     parsed_neighbors = []
     for config in neighbor_configs:
@@ -838,6 +916,7 @@ def parse_bgp_neighbors(neighbor_configs):
                 neighbor = {'display_name': t0_router,
                             'neighbor_address': t0_facts[t0_router]['inter_t0_addr'],
                             'remote_as_num': t0_facts[t0_router]['as_num']}
+                add_filter_options(config, neighbor)
                 parsed_neighbors.append(neighbor)
             else:
                 print('Error!! No T0Router found with name: {}'.format(t0_router))
@@ -845,17 +924,18 @@ def parse_bgp_neighbors(neighbor_configs):
         elif config['type'] == 'address':
             neighbor = config.pop('type')
             parsed_neighbors.append(neighbor)
+    return parsed_neighbors
 
 
 def add_bgp_configs():
     bgp_specs = os.getenv('nsx_t_t0_bgp_spec_int', '').strip()
     if bgp_specs == '' or bgp_specs == 'null':
-        print('No yaml payload set for the NSX_T0_BGP_SPEC, ignoring bgp section!')
+        print('No yaml payload set for the NSX_T_BGP_SPEC, ignoring bgp section!')
         return
 
     bgp_configs = yaml.load(bgp_specs)['bgp_configs']
     if bgp_configs is None or len(bgp_configs) <= 0:
-        print('No BGP config entries in the NSX_T0_BGP_SPEC, nothing to add/update!')
+        print('No BGP config entries in the NSX_T_BGP_SPEC, nothing to add/update!')
         return
 
     construct_t0_facts()
