@@ -41,9 +41,9 @@ IP_POOL = 'IP_POOL'
 
 
 def init():
-    nsx_mgr_ip          = os.getenv('controller_manager_ips_int').split(',')[0].strip()
-    nsx_mgr_user        = os.getenv('controller_manager_username_int', 'admin')
-    nsx_mgr_pwd         = os.getenv('controller_manager_password_int')
+    nsx_mgr_ip          = os.getenv('nsx_manager_ips_int').split(',')[0].strip()
+    nsx_mgr_user        = os.getenv('nsx_manager_username_int', 'admin')
+    nsx_mgr_pwd         = os.getenv('nsx_manager_password_int')
 
     nsx_mgr_context = {
         'admin_user': nsx_mgr_user,
@@ -622,7 +622,7 @@ def list_certs():
 
 def generate_self_signed_cert():
     nsx_t_manager_fqdn = '{}-1.{}'.format(
-        os.getenv('controller_manager_hostname_prefix_int'),
+        os.getenv('nsx_manager_hostname_prefix_int'),
         os.getenv('dns_domain_int'))
 
     if nsx_t_manager_fqdn is None or nsx_t_manager_fqdn is '':

@@ -2,24 +2,24 @@
 
 function create_manager_host {
   # Outer parenthesis converts string to an array
-  controller_manager_ips_int=($(echo "$controller_manager_ips_int" | sed -e 's/,/ /g'))
-  manager_ip=${controller_manager_ips_int[0]}
-  manager_hostname="${controller_manager_hostname_prefix_int-1}"
+  nsx_manager_ips_int=($(echo "$nsx_manager_ips_int" | sed -e 's/,/ /g'))
+  manager_ip=${nsx_manager_ips_int[0]}
+  manager_hostname="${nsx_manager_hostname_prefix_int-1}"
   # The following need to be placed under [localhost:vars] section
   cat >> manager_host <<-EOF
 
 nsx_manager_ip="$manager_ip"
-nsx_manager_username="$controller_manager_username_int"
-nsx_manager_password="$controller_manager_password_int"
+nsx_manager_username="$nsx_manager_username_int"
+nsx_manager_password="$nsx_manager_password_int"
 nsx_manager_assigned_hostname="$manager_hostname"
-nsx_manager_root_pwd="$controller_manager_root_pwd_int"
-nsx_manager_cli_pwd="$controller_manager_cli_pwd_int"
-nsx_manager_deployment_size="$controller_manager_deployment_size_int"
+nsx_manager_root_pwd="$nsx_manager_root_pwd_int"
+nsx_manager_cli_pwd="$nsx_manager_cli_pwd_int"
+nsx_manager_deployment_size="$nsx_manager_deployment_size_int"
 EOF
 }
 
 function create_controller_hosts {
-  num_controllers=${#controller_manager_ips_int[@]}
+  num_controllers=${#nsx_manager_ips_int[@]}
   if [[ $num_controllers -lt 2 ]]; then
     echo "No additional controller-manager specified."
     return
@@ -33,16 +33,18 @@ function create_controller_hosts {
 
   echo "[controllers]" > ctrl_vms
   for ((i=1;i<$num_controllers;++i)); do
-    controller_ip=${controller_manager_ips_int[i]}
+    controller_ip=${nsx_manager_ips_int[i]}
     count=$((i+1))
-    hostname="${controller_manager_hostname_prefix_int}-${count}.${dns_domain_int}"
+    hostname="${nsx_manager_hostname_prefix_int}-${count}.${dns_domain_int}"
+    controller_host="controller-${count} ip=${controller_ip} hostname=${hostname}"
     echo "$controller_host" >> ctrl_vms
   done
 
   cat >> ctrl_vms <<-EOF
 [controllers:vars]
-controller_mgmt_network="$mgmt_portgroup_int"
-controller_manager_deployment_size="$controller_manager_deployment_size_int"
+prefix_length="${prefix_length}"
+default_gateway="${default_gateway_int}"
+controller_mgmt_network="${mgmt_portgroup_in}"
 EOF
 
 }
@@ -159,7 +161,7 @@ tier0_uplink_port_subnet="$tier0_uplink_port_subnet_int"
 tier0_uplink_next_hop_ip="$tier0_uplink_next_hop_ip_int"
 
 resource_reservation_off="$resource_reservation_off_int"
-controller_manager_ssh_enabled="$controller_manager_ssh_enabled_int"
+nsx_manager_ssh_enabled="$nsx_manager_ssh_enabled_int"
 unified_appliance="$unified_appliance_int"
 EOF
 

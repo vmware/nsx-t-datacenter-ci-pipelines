@@ -11,15 +11,15 @@ ntp_servers: time.vmware.com
 default_gateway: 192.168.110.1
 netmask: 255.255.255.0
 
-# NSX controller-manager configs
-controller_manager_ips: 192.168.110.33,192.168.110.34,192.168.110.35 # 3 node cluster is recommended
-controller_manager_username: admin
-controller_manager_password: Admin!23Admin
-controller_manager_hostname_prefix: "nsxt-ctl-mgr" # Generated hostname: nsxt-ctl-mgr-1.corp.local.io, will be FQDN
-controller_manager_root_pwd: Admin!23Admin # Min 12 chars, upper, lower, number, special digit
-controller_manager_cli_pwd: Admin!23Admin
-controller_manager_deployment_size: small # Recommended for real bare-bones demo, smallest setup
-controller_manager_ssh_enabled: true
+# NSX manager cluster configs
+nsx_manager_ips: 192.168.110.33,192.168.110.34,192.168.110.35 # 3 node cluster is recommended. 1 is minimum, 3 is max
+nsx_manager_username: admin
+nsx_manager_password: Admin!23Admin
+nsx_manager_hostname_prefix: "nsxt-mgr" # Generated hostname: nsxt-mgr-1.corp.local.io, will be FQDN
+nsx_manager_root_pwd: Admin!23Admin # Min 12 chars, upper, lower, number, special digit
+nsx_manager_cli_pwd: Admin!23Admin
+nsx_manager_deployment_size: small # Recommended for real bare-bones demo, smallest setup
+nsx_manager_ssh_enabled: true
 vcenter_ip: 192.168.110.22
 vcenter_username: administrator@corp.local
 vcenter_password: "VMware1!"

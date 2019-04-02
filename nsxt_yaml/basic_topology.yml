@@ -29,8 +29,8 @@
         vcenter_passwd: "{{hostvars['localhost'].vcenter_password}}"
         deployment_size: "{{hostvars['localhost'].nsx_manager_deployment_size}}"
         role: "{{hostvars['localhost'].nsx_manager_role}}"
-        ssh_enabled: "{{hostvars['localhost'].controller_manager_ssh_enabled}}"
-        allow_ssh_root_login: "{{hostvars['localhost'].controller_manager_ssh_enabled}}"
+        ssh_enabled: "{{hostvars['localhost'].nsx_manager_ssh_enabled}}"
+        allow_ssh_root_login: "{{hostvars['localhost'].nsx_manager_ssh_enabled}}"
       register: ova_deploy_status
 
     - name: Check manager status
@@ -148,7 +148,7 @@
         validate_certs: False
         deployment_requests:
         - roles: [CONTROLLER, MANAGER]
-          form_factor: "{{hostvars[item].controller_manager_deployment_size}}"
+          form_factor: "{{hostvars['localhost'].nsx_manager_deployment_size}}"
           user_settings:
             cli_password: "{{hostvars['localhost'].nsx_manager_cli_password}}"
             root_password: "{{hostvars['localhost'].nsx_manager_root_password}}"
@@ -165,7 +165,7 @@
             - ip_addresses:
               - "{{hostvars[item].ip}}"
               prefix_length: "{{hostvars[item].prefix_length}}"
-            enable_ssh: "{{hostvars['localhost'].controller_manager_ssh_enabled}}"
+            enable_ssh: "{{hostvars['localhost'].nsx_manager_ssh_enabled}}"
         state: present
       with_items: "{{groups['controllers']}}"
       register: controller_response
