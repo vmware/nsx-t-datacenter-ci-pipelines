@@ -22,9 +22,11 @@ netmask: 255.255.255.0
 nsx_manager_ip: 192.168.110.33
 nsx_manager_username: admin
 nsx_manager_password: Admin!23Admin
-nsx_manager_assigned_hostname: "nsxt-manager-10" # this hostname+dns_domain will be FQDN
-nsx_manager_root_pwd: VMware1!    # Min 8 chars, upper, lower, number, special digit
-nsx_manager_deployment_size: small   # Recommended for real barebones demo, smallest setup
+nsx_manager_hostname_prefix: "nsxt-mgr" # Generated hostname: nsxt-mgr-1.corp.local.io, will be FQDN
+nsx_manager_root_pwd: Admin!23Admin # Min 12 chars, upper, lower, number, special digit
+nsx_manager_cli_pwd: Admin!23Admin
+nsx_manager_deployment_size: small # Recommended for real bare-bones demo, smallest setup
+nsx_manager_deployment_ip_prefix_length: 23
 nsx_manager_ssh_enabled: true
 resource_reservation_off: true
 
@@ -37,7 +39,6 @@ compute_manager_2_vcenter_ip: "null"
 compute_manager_2_username: "null"
 compute_manager_2_password: "null"
 
-edge_uplink_profile_vlan: 0 # For outbound uplink connection used by Edge, usually keep as 0
 esxi_uplink_profile_vlan: 0 # For internal overlay connection used by Esxi hosts, usually trasnport VLAN ID
 
 # Virtual Tunnel Endpoint network ip pool
@@ -69,6 +70,7 @@ edge_transport_node_prefix: edge-transp-node
 edge_cli_password: "VMware1!"
 edge_root_password: "VMware1!"
 edge_deployment_size: "large" #Large recommended for PKS deployments
+edge_uplink_profile_vlan: 0 # For outbound uplink connection used by Edge, usually keep as 0
 vc_datacenter_for_edge: RegionA01
 vc_cluster_for_edge: RegionA01-MGMT
 vc_datastore_for_edge: iscsi
@@ -99,6 +101,8 @@ tenant_edge_clusters:
   edge_cli_password: "VMware1!"
   edge_root_password: "VMware1!"
   edge_deployment_size: "large"   #Large recommended for PKS deployments
+  edge_uplink_profile_vlan: 10
+  edge_uplink_profile_name: tenant1_uplink_prof
   vc_datacenter_for_edge: RegionA01
   vc_cluster_for_edge: RegionA01-edge-cls2
   vc_datastore_for_edge: edge-datastore
@@ -115,6 +119,8 @@ tenant_edge_clusters:
   edge_cli_password: "VMware1!"
   edge_root_password: "VMware1!"
   edge_deployment_size: "large"   #Large recommended for PKS deployments
+  edge_uplink_profile_vlan: 20
+  edge_uplink_profile_name: tenant2_uplink_prof
   vc_datacenter_for_edge: RegionA01
   vc_cluster_for_edge: RegionA01-edge-cls3
   vc_datastore_for_edge: edge-datastore

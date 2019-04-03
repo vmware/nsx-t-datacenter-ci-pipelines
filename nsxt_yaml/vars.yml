@@ -21,6 +21,7 @@ host_uplink_prof: host-overlay-uplink-prof
 
 uplink_1_name: "uplink-1"
 uplink_2_name: "uplink-2"
+
 common_teaming_spec_for_esx:
   active_list:
   - uplink_name: "{{uplink_1_name}}"
@@ -30,14 +31,16 @@ common_teaming_spec_for_esx:
     uplink_type: PNIC
   policy: FAILOVER_ORDER
 
+common_teaming_spec_for_edge:
+  active_list:
+  - uplink_name: "{{uplink_1_name}}"
+    uplink_type: PNIC
+  policy: FAILOVER_ORDER
+
 uplink_profiles:
 - display_name: "{{edge_uplink_prof}}"
   description: "Edge Uplink Profile"
-  teaming:
-    active_list:
-    - uplink_name: "{{uplink_1_name}}"
-      uplink_type: PNIC
-    policy: FAILOVER_ORDER
+  teaming: "{{common_teaming_spec_for_edge}}"
   transport_vlan: "{{hostvars['localhost'].edge_uplink_profile_vlan}}"
 
 - display_name: "{{host_uplink_prof}}"

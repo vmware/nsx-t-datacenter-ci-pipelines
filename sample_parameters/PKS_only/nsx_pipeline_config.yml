@@ -24,9 +24,11 @@ netmask: 255.255.255.0
 nsx_manager_ip: 192.168.110.33
 nsx_manager_username: admin
 nsx_manager_password: Admin!23Admin
-nsx_manager_assigned_hostname: "nsxt-manager-10" # this hostname+dns_domain will be FQDN
-nsx_manager_root_pwd: VMware1!    # Min 8 chars, upper, lower, number, special digit
-nsx_manager_deployment_size: small   # Recommended for real barebones demo, smallest setup
+nsx_manager_hostname_prefix: "nsxt-mgr" # Generated hostname: nsxt-mgr-1.corp.local.io, will be FQDN
+nsx_manager_root_pwd: Admin!23Admin # Min 12 chars, upper, lower, number, special digit
+nsx_manager_cli_pwd: Admin!23Admin
+nsx_manager_deployment_size: small # Recommended for real bare-bones demo, smallest setup
+nsx_manager_deployment_ip_prefix_length: 23
 nsx_manager_ssh_enabled: true
 resource_reservation_off: true
 
@@ -196,6 +198,6 @@ nsx_t_csr_request_spec: |
 
 nsx_t_lbr_spec: |
   loadbalancers:
-  
+
 nsx_t_ha_switching_profile_spec: |
   ha_switching_profiles:

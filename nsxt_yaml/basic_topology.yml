@@ -112,17 +112,17 @@
         validate_certs: False
         deployment_requests:
         - roles: [CONTROLLER, MANAGER]
-          form_factor: "{{hostvars[item].controller_deployment_size}}"
+          form_factor: "{{hostvars['localhost'].nsx_manager_deployment_size.upper()}}"
           user_settings:
-            cli_password: "{{hostvars[item].controller_cli_password}}"
-            root_password: "{{hostvars[item].controller_root_password}}"
+            cli_password: "{{hostvars['localhost'].nsx_manager_cli_pwd}}"
+            root_password: "{{hostvars['localhost'].nsx_manager_root_pwd}}"
           deployment_config:
             placement_type: VsphereClusterNodeVMDeploymentConfig
             vc_name: "{{compute_manager_name}}"
-            management_network_id: "{{hostvars[item].vc_management_network_for_controller}}"
+            management_network_id: "{{hostvars['localhost'].vc_management_network_for_deployment}}"
             hostname: "{{hostvars[item].hostname}}"
-            compute_id: "{{hostvars[item].vc_cluster_for_controller}}"
-            storage_id: "{{hostvars[item].vc_datastore_for_controller}}"
+            compute_id: "{{hostvars['localhost'].vc_cluster_for_deployment}}"
+            storage_id: "{{hostvars['localhost'].vc_datastore_for_deployment}}"
             default_gateway_addresses:
             - "{{hostvars[item].default_gateway}}"
             management_port_subnets:
@@ -159,7 +159,7 @@
       with_items:
       - "{{transportzones}}"
 
-    - name: Create uplink profile
+    - name: Create uplink profiles for default topology
       nsxt_uplink_profiles:
         hostname: "{{hostvars['localhost'].nsx_manager_ip}}"
         username: "{{hostvars['localhost'].nsx_manager_username}}"
@@ -173,6 +173,21 @@
         state: "present"
       with_items:
       - "{{uplink_profiles}}"
+
+    - name: Create uplink profiles for tenant edges
+      nsxt_uplink_profiles:
+        hostname: "{{hostvars['localhost'].nsx_manager_ip}}"
+        username: "{{hostvars['localhost'].nsx_manager_username}}"
+        password: "{{hostvars['localhost'].nsx_manager_password}}"
+        validate_certs: False
+        resource_type: UplinkHostSwitchProfile
+        display_name: "{{item.edge_uplink_profile_name}}"
+        mtu: 1600
+        teaming: "{{common_teaming_spec_for_edge}}"
+        transport_vlan: "{{item.edge_uplink_profile_vlan}}"
+        state: "present"
+      with_items:
+      - "{{ groups['tenant_edge_cluster_members'] }}"
 
     # # TODO: support tags
     - name: Create VTEP IP pool
@@ -241,7 +256,7 @@
           resource_type: StandardHostSwitchSpec
           host_switches:
           - host_switch_profiles:
-            - name: "{{edge_uplink_prof}}"
+            - name: "{{hostvars[item].edge_uplink_profile_name}}"
               type: UplinkHostSwitchProfile
             host_switch_name: "{{overlay_host_switch}}"
             pnics:
@@ -251,7 +266,7 @@
               resource_type: StaticIpPoolSpec
               ip_pool_name: "{{vtep_ip_pool_name}}"
           - host_switch_profiles:
-            - name: "{{edge_uplink_prof}}"
+            - name: "{{hostvars[item].edge_uplink_profile_name}}"
               type: UplinkHostSwitchProfile
             host_switch_name: "{{vlan_host_switch}}"
             pnics:
@@ -266,7 +281,7 @@
           ip_addresses:
           - "{{hostvars[item].ip}}"
           deployment_config:
-            form_factor: "{{hostvars[item].edge_deployment_size}}"
+            form_factor: "{{hostvars[item].edge_deployment_size.upper()}}"
             node_user_settings:
               cli_password: "{{hostvars[item].edge_cli_password}}"
               root_password: "{{hostvars[item].edge_root_password}}"
@@ -297,4 +312,4 @@
       shell: I=0; while ! ping -c 1 -W 2 {{hostvars[item].ip}}; do I=$(( I + 1 )); [ $I -gt 60 ] && exit 1; done; exit 0
       with_items:
       - "{{groups['edge_nodes']}}"
-      - "{{hostvars['tenant_edge_clusters'].list}}"
+      - "{{ hostvars['localhost']['tenant_edge_clusters'] | flatten }}"
