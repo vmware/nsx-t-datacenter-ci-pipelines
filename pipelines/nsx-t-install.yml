@@ -26,6 +26,7 @@ nsx_t_gen_params: &nsx-t-gen-params
   nsx_manager_root_pwd_int: ((nsx_manager_root_pwd))
   nsx_manager_cli_pwd_int: ((nsx_manager_cli_pwd))
   nsx_manager_deployment_size_int: ((nsx_manager_deployment_size))
+  nsx_manager_deployment_ip_prefix_length_int: ((nsx_manager_deployment_ip_prefix_length))
   nsx_manager_ssh_enabled_int: ((nsx_manager_ssh_enabled))
   resource_reservation_off_int: ((resource_reservation_off))
 

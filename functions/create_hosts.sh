@@ -2,8 +2,8 @@
 
 function create_manager_host {
   # Outer parenthesis converts string to an array
-  nsx_manager_ips_int=($(echo "$nsx_manager_ips_int" | sed -e 's/,/ /g'))
-  manager_ip=${nsx_manager_ips_int[0]}
+  nsx_manager_ips=($(echo "$nsx_manager_ips_int" | sed -e 's/,/ /g'))
+  manager_ip=${nsx_manager_ips[0]}
   manager_hostname="${nsx_manager_hostname_prefix_int-1}"
   # The following need to be placed under [localhost:vars] section
   cat >> manager_host <<-EOF
@@ -19,21 +19,22 @@ EOF
 }
 
 function create_controller_hosts {
-  num_controllers=${#nsx_manager_ips_int[@]}
+  nsx_manager_ips=($(echo "$nsx_manager_ips_int" | sed -e 's/,/ /g'))
+  num_controllers=${#nsx_manager_ips[@]}
   if [[ $num_controllers -lt 2 ]]; then
     echo "No additional controller-manager specified."
     return
   fi
 
-  ip_mask_fields=($(echo "$netmask_int" | sed -e 's/./ /g'))
-  prefix_length=0
-  for ip_mask_field in ${ip_mask_fields[*]}; do
-    prefix_length=$(( prefix_length + $(echo "obase=2;${ip_mask_field}" | bc | tr -cd '1' | wc -c) ))
-  done
+#  ip_mask_fields=($(echo "$netmask_int" | sed -e 's/\./ /g'))
+#  prefix_length=0
+#  for ip_mask_field in ${ip_mask_fields[*]}; do
+#    prefix_length=$(( prefix_length + $(echo "obase=2;${ip_mask_field}" | bc | tr -cd '1' | wc -c) ))
+#  done
 
   echo "[controllers]" > ctrl_vms
   for ((i=1;i<$num_controllers;++i)); do
-    controller_ip=${nsx_manager_ips_int[i]}
+    controller_ip=${nsx_manager_ips[i]}
     count=$((i+1))
     hostname="${nsx_manager_hostname_prefix_int}-${count}.${dns_domain_int}"
     controller_host="controller-${count} ip=${controller_ip} hostname=${hostname}"
@@ -42,9 +43,8 @@ function create_controller_hosts {
 
   cat >> ctrl_vms <<-EOF
 [controllers:vars]
-prefix_length="${prefix_length}"
+prefix_length="${nsx_manager_deployment_ip_prefix_length_int}"
 default_gateway="${default_gateway_int}"
-controller_mgmt_network="${mgmt_portgroup_in}"
 EOF
 
 }
@@ -124,6 +124,7 @@ function create_hosts {
 
 # TODO: set nsx manager fqdn
 export NSX_T_MANAGER_SHORT_HOSTNAME=$(echo "$NSX_T_MANAGER_FQDN" | awk -F '\.' '{print $1}')
+#apt -qq install bc
 
 cat > hosts <<-EOF
 [localhost]
@@ -136,8 +137,13 @@ vcenter_password="$vcenter_password_int"
 vcenter_datacenter="$vcenter_datacenter_int"
 vcenter_cluster="$vcenter_cluster_int"
 vcenter_datastore="$vcenter_datastore_int"
-
 mgmt_portgroup="$mgmt_portgroup_int"
+
+vc_datacenter_for_deployment="$vcenter_datacenter_int"
+vc_cluster_for_deployment="$vcenter_cluster_int"
+vc_datastore_for_deployment="$vcenter_datastore_int"
+vc_management_network_for_deployment="$mgmt_portgroup_int"
+
 dns_server="$dns_server_int"
 dns_domain="$dns_domain_int"
 ntp_servers="$ntp_servers_int"
@@ -189,11 +195,14 @@ EOF
   create_edge_hosts
   create_controller_hosts
 
-  cat ctrl_vms >> hosts
-  echo "" >> hosts
+  if [[ -f ctrl_vms ]]; then
+    cat ctrl_vms >> hosts
+    echo "" >> hosts
+    rm ctrl_vms
+  fi
   cat edge_vms >> hosts
 
-  rm manager_host ctrl_vms edge_vms
+  rm manager_host edge_vms
 
   if [[ $esx_ips_int != ""  &&  $esx_ips_int != "null" ]]; then
     create_esx_hosts
@@ -201,4 +210,5 @@ EOF
     cat esx_hosts >> hosts
     rm esx_hosts
   fi
+
 }

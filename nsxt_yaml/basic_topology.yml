@@ -132,10 +132,17 @@
       when:
         - hostvars['localhost'].resource_reservation_off == "true"
 
-    - name: Turn off memory reservation for controllers and edge nodes and power them on
+    - name: Turn off memory reservation for additional controller-managers and power them on
       command: python turn_off_reservation.py --host {{hostvars['localhost'].vcenter_ip}} --user {{hostvars['localhost'].vcenter_username}} --password {{hostvars['localhost'].vcenter_password}} --vm_list {{hostvars[item].hostname}}
       with_items:
         - "{{groups['controllers']}}"
+      when:
+        - groups['controllers'] is defined
+        - hostvars['localhost'].resource_reservation_off == "true"
+
+    - name: Turn off memory reservation for edge nodes and power them on
+      command: python turn_off_reservation.py --host {{hostvars['localhost'].vcenter_ip}} --user {{hostvars['localhost'].vcenter_username}} --password {{hostvars['localhost'].vcenter_password}} --vm_list {{hostvars[item].hostname}}
+      with_items:
         - "{{groups['edge_nodes']}}"
       when:
         - hostvars['localhost'].resource_reservation_off == "true"
@@ -148,17 +155,17 @@
         validate_certs: False
         deployment_requests:
         - roles: [CONTROLLER, MANAGER]
-          form_factor: "{{hostvars['localhost'].nsx_manager_deployment_size}}"
+          form_factor: "{{hostvars['localhost'].nsx_manager_deployment_size.upper()}}"
           user_settings:
-            cli_password: "{{hostvars['localhost'].nsx_manager_cli_password}}"
-            root_password: "{{hostvars['localhost'].nsx_manager_root_password}}"
+            cli_password: "{{hostvars['localhost'].nsx_manager_cli_pwd}}"
+            root_password: "{{hostvars['localhost'].nsx_manager_root_pwd}}"
           deployment_config:
             placement_type: VsphereClusterNodeVMDeploymentConfig
             vc_name: "{{compute_manager_name}}"
-            management_network_id: "{{hostvars[item].controller_mgmt_network}}"
+            management_network_id: "{{hostvars['localhost'].vc_management_network_for_deployment}}"
             hostname: "{{hostvars[item].hostname}}"
-            compute_id: "{{hostvars['localhost'].vcenter_cluster}}"
-            storage_id: "{{hostvars['localhost'].vcenter_datastore}}"
+            compute_id: "{{hostvars['localhost'].vc_cluster_for_deployment}}"
+            storage_id: "{{hostvars['localhost'].vc_datastore_for_deployment}}"
             default_gateway_addresses:
             - "{{hostvars[item].default_gateway}}"
             management_port_subnets:
@@ -168,6 +175,7 @@
             enable_ssh: "{{hostvars['localhost'].nsx_manager_ssh_enabled}}"
         state: present
       with_items: "{{groups['controllers']}}"
+      when: groups['controllers'] is defined
       register: controller_response
 
     - name: Install ping
@@ -178,6 +186,7 @@
     - name: Wait 120 seconds for controllers to become reachable
       shell: I=0; while ! ping -c 1 -W 2 {{hostvars[item].ip}}; do I=$(( I + 1 )); [ $I -gt 60 ] && exit 1; done; exit 0
       with_items: "{{groups['controllers']}}"
+      when: groups['controllers'] is defined
 
       # TODO: does not support tag
     - name: Create Transport Zones
@@ -265,7 +274,7 @@
           ip_addresses:
           - "{{hostvars[item].ip}}"
           deployment_config:
-            form_factor: "{{hostvars[item].edge_deployment_size}}"
+            form_factor: "{{hostvars[item].edge_deployment_size.upper()}}"
             node_user_settings:
               cli_password: "{{hostvars[item].edge_cli_password}}"
               root_password: "{{hostvars[item].edge_root_password}}"

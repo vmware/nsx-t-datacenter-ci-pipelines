@@ -21,8 +21,8 @@ HOST_ID_FIELDS = [
     'vc_datacenter_for_edge', 'vc_cluster_for_edge',
     'vc_datastore_for_edge', 'vc_uplink_network_for_edge',
     'vc_overlay_network_for_edge', 'vc_management_network_for_edge',
-    'vc_datacenter_for_controller', 'vc_cluster_for_controller',
-    'vc_datastore_for_controller', 'vc_management_network_for_controller'
+    'vc_datacenter_for_deployment', 'vc_cluster_for_deployment',
+    'vc_datastore_for_deployment', 'vc_management_network_for_deployment'
 ]
 
 class NoMoRefIdFoundError(Exception):
@@ -146,6 +146,8 @@ class MoRefIdRetriever(object):
             # if this is already a MoRefId
             return vc_object_name
         try:
+            if 'folder' in vc_datacenter:
+                vc_datacenter = vc_datacenter.split('/')[1]
             print 'trying to lookup %s %s %s' % (vc_datacenter, vc_object_type, vc_object_name)
             return self.mapping[vc_datacenter][vc_object_type][vc_object_name]
         except KeyError:
@@ -183,14 +185,6 @@ class HostsFileWriter(object):
         new_line = '%s=%s' % (id_var_name, mo_id)
         return new_line
 
-    def modify_deploy_size_if_matched(self, line):
-        new_line = line
-        if line and 'deployment_size' in line and 'nsx_manager' not in line:
-            value = line.split('=')[-1].strip(" \"'")
-            var_name = line.split('=')[0]
-            new_line = '%s=%s' % (var_name, value.upper())
-        return new_line
-
     def modify_ssh_enabled_if_matched(self, line):
         new_line = line
         if line and 'ssh_enabled' in line:
@@ -206,13 +200,13 @@ class HostsFileWriter(object):
         with open(self.in_file, 'r') as f:
             for line in f:
                 new_line = self.modify_line_if_matched(line.strip())
-                new_line = self.modify_deploy_size_if_matched(new_line)
                 new_line = self.modify_ssh_enabled_if_matched(new_line)
                 if new_line:
                     lines.append('%s\n' % new_line)
 
         with open(self.out_file, 'w') as f:
             f.writelines(lines)
+
 
 if __name__ == "__main__":
     mr = MoRefIdRetriever()

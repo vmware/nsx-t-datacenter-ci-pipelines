@@ -19,6 +19,7 @@ nsx_manager_hostname_prefix: "nsxt-mgr" # Generated hostname: nsxt-mgr-1.corp.lo
 nsx_manager_root_pwd: Admin!23Admin # Min 12 chars, upper, lower, number, special digit
 nsx_manager_cli_pwd: Admin!23Admin
 nsx_manager_deployment_size: small # Recommended for real bare-bones demo, smallest setup
+nsx_manager_deployment_ip_prefix_length: 23
 nsx_manager_ssh_enabled: true
 vcenter_ip: 192.168.110.22
 vcenter_username: administrator@corp.local

@@ -139,6 +139,7 @@ class ResourceReservationManager(object):
                 self.turn_off_vm_memory_reservation(vm)
                 print ''
 
+
 if __name__ == "__main__":
     man = ResourceReservationManager()
     man.process()
