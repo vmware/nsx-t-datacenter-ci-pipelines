@@ -32,7 +32,6 @@ nsx_t_gen_params: &nsx-t-gen-params
 
   compute_manager_username_int: ((compute_manager_username))
   compute_manager_password_int: ((compute_manager_password))
-  edge_uplink_profile_vlan_int: ((edge_uplink_profile_vlan))
   esxi_uplink_profile_vlan_int: ((esxi_uplink_profile_vlan))
   vtep_ip_pool_cidr_int: ((vtep_ip_pool_cidr))
   vtep_ip_pool_gateway_int: ((vtep_ip_pool_gateway))
@@ -47,6 +46,7 @@ nsx_t_gen_params: &nsx-t-gen-params
   edge_cli_password_int: ((edge_cli_password))
   edge_root_password_int: ((edge_root_password))
   edge_deployment_size_int: ((edge_deployment_size))
+  edge_uplink_profile_vlan_int: ((edge_uplink_profile_vlan))
   vc_datacenter_for_edge_int: ((vc_datacenter_for_edge))
   vc_cluster_for_edge_int: ((vc_cluster_for_edge))
   vc_datastore_for_edge_int: ((vc_datastore_for_edge))

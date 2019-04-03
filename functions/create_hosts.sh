@@ -53,7 +53,7 @@ EOF
 function create_edge_hosts {
   echo "[edge_nodes]" > edge_vms
   edge_ips_int=($(echo "$edge_ips_int" | sed -e 's/,/ /g'))
-  per_edge_params=("edge_deployment_size_int" "vc_datacenter_for_edge_int" "vc_cluster_for_edge_int" "vc_datastore_for_edge_int" "vc_uplink_network_for_edge_int" "vc_overlay_network_for_edge_int" "vc_management_network_for_edge_int")
+  per_cluster_params=("edge_deployment_size_int" "edge_uplink_profile_vlan_int" "vc_datacenter_for_edge_int" "vc_cluster_for_edge_int" "vc_datastore_for_edge_int" "vc_uplink_network_for_edge_int" "vc_overlay_network_for_edge_int" "vc_management_network_for_edge_int")
 
   num_edges=${#edge_ips_int[@]}
 
@@ -76,9 +76,10 @@ function create_edge_hosts {
 [edge_nodes:vars]
 edge_cli_password="$edge_cli_password_int"
 edge_root_password="$edge_root_password_int"
+edge_uplink_profile_name="edge-single-uplink-prof"
 EOF
 
-  for param in "${per_edge_params[@]}"; do
+  for param in "${per_cluster_params[@]}"; do
     # param_val=($(echo "${!param}" | sed -e 's/,/ /g'))
     param_val="${!param}"
     # if [[ ${#param_val[@]} -eq 1 ]]; then

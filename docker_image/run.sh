@@ -64,6 +64,10 @@ if [[ $version_num -le 2 ]] && [[ $version_sub_num -le 3 ]]; then
     nsxt_ansible_branch=v1.0.0
 fi
 
+if [[ $PIPELINE_BRANCH != "" ]]; then
+    nsx_t_pipeline_branch=$PIPELINE_BRANCH
+fi
+
 pipeline_internal_config="pipeline_config_internal.yml"
 echo "ovftool_file_name: $ovftool_file_name" > $pipeline_internal_config
 echo "ova_file_name: $ova_file_name" >> $pipeline_internal_config

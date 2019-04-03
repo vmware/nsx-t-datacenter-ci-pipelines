@@ -38,7 +38,6 @@ compute_manager_2_vcenter_ip: "null"
 compute_manager_2_username: "null"
 compute_manager_2_password: "null"
 
-edge_uplink_profile_vlan: 0 # For outbound uplink connection used by Edge, usually keep as 0
 esxi_uplink_profile_vlan: 0 # For internal overlay connection used by Esxi hosts, usually trasnport VLAN ID
 
 # Virtual Tunnel Endpoint network ip pool
@@ -70,6 +69,7 @@ edge_transport_node_prefix: edge-transp-node
 edge_cli_password: "VMware1!"
 edge_root_password: "VMware1!"
 edge_deployment_size: "large" #Large recommended for PKS deployments
+edge_uplink_profile_vlan: 0 # For outbound uplink connection used by Edge, usually keep as 0
 vc_datacenter_for_edge: RegionA01
 vc_cluster_for_edge: RegionA01-MGMT
 vc_datastore_for_edge: iscsi
@@ -100,6 +100,8 @@ tenant_edge_clusters:
   edge_cli_password: "VMware1!"
   edge_root_password: "VMware1!"
   edge_deployment_size: "large"   #Large recommended for PKS deployments
+  edge_uplink_profile_vlan: 10
+  edge_uplink_profile_name: tenant1_uplink_prof
   vc_datacenter_for_edge: RegionA01
   vc_cluster_for_edge: RegionA01-edge-cls2
   vc_datastore_for_edge: edge-datastore
@@ -116,6 +118,8 @@ tenant_edge_clusters:
   edge_cli_password: "VMware1!"
   edge_root_password: "VMware1!"
   edge_deployment_size: "large"   #Large recommended for PKS deployments
+  edge_uplink_profile_vlan: 20
+  edge_uplink_profile_name: tenant2_uplink_prof
   vc_datacenter_for_edge: RegionA01
   vc_cluster_for_edge: RegionA01-edge-cls3
   vc_datastore_for_edge: edge-datastore
