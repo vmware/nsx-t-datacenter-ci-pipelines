@@ -940,34 +940,59 @@ def add_filter_options(config, neighbor):
             neighbor['address_families'][0].update({'in_filter_ipprefixlist_id': in_prefix_id})
 
 
-def parse_bgp_neighbors(neighbor_configs):
-    parsed_neighbors = []
-    for config in neighbor_configs:
-        if config['type'] == 't0_router':
-            t0_router = config['t0_router_name']
-            if t0_router in t0_facts:
-                neighbor = {'display_name': t0_router,
-                            'neighbor_address': t0_facts[t0_router]['inter_t0_addr'],
-                            'remote_as_num': t0_facts[t0_router]['as_num']}
-                add_filter_options(config, neighbor)
-                parsed_neighbors.append(neighbor)
-            else:
-                print('Error!! No T0Router found with name: {}'.format(t0_router))
-                exit(-1)
-        elif config['type'] == 'address':
-            neighbor = config.pop('type')
-            parsed_neighbors.append(neighbor)
-    return parsed_neighbors
+def parse_bgp_neighbor(config):
+    if config['type'] == 't0_router':
+        t0_router = config['t0_router_name']
+        if t0_router in t0_facts:
+            neighbor = {'display_name': t0_router,
+                        'neighbor_address': t0_facts[t0_router]['inter_t0_addr'],
+                        'remote_as_num': t0_facts[t0_router]['as_num']}
+            add_filter_options(config, neighbor)
+            return neighbor
+        else:
+            print('Error!! No T0Router found with name: {}'.format(t0_router))
+            exit(-1)
+    elif config['type'] == 'address':
+        neighbor = config.pop('type')
+        return neighbor
+
+
+def check_for_existing_bgp_neighbors(existing_neighbors, new_neighbor):
+    if len(existing_neighbors) == 0:
+        return None
+    for existing_neighbor in existing_neighbors:
+        if existing_neighbor['neighbor_address'] == new_neighbor['neighbor_address']:
+            return existing_neighbor
+    return None
+
+
+def add_bgp_neighbors(neighbors, t0_router_id, t0_router_name):
+    changes_detected = False
+    api_endpoint = '%s/%s/%s' % (ROUTERS_ENDPOINT, t0_router_id, 'routing/bgp/neighbors')
+    existing_neighbors = client.get(api_endpoint).json()['results']
+    for neighbor in neighbors:
+        neighbor_payload = parse_bgp_neighbor(neighbor)
+        existing_neighbor = check_for_existing_bgp_neighbors(existing_neighbors, neighbor_payload)
+        if existing_neighbor is None:
+            changes_detected = True
+            print('Adding new BGP neighbor for T0 router{}: {}'.format(t0_router_name, neighbor_payload))
+            client.post(api_endpoint, neighbor_payload)
+        else:
+            if any(x != y for x, y in zip(existing_neighbor['address_families'],
+                                          neighbor_payload['address_families'])):
+                changes_detected = True
+                print('Adding new BGP neighbor for T0 router{}: {}'.format(t0_router_name, neighbor_payload))
+                api_endpoint += '/%s' % existing_neighbor['id']
+                client.put(api_endpoint, neighbor_payload)
+    return changes_detected
 
 
 def check_for_existing_bgp_communities(existing_community_lists, new_community_list):
     if len(existing_community_lists) == 0:
         return None
-
     for existing_community_list in existing_community_lists:
         if existing_community_list['display_name'] == new_community_list['display_name']:
             return existing_community_list
-
     return None
 
 
@@ -1036,14 +1061,17 @@ def add_bgp_configs():
                     client.put(api_endpoint, bgp_payload)
 
             if 'community_lists' in bgp_config:
-                bgp_payload.update({'community_lists': bgp_config['community_lists']})
                 changes_detected = add_bgp_community_list_configs(bgp_config['community_lists'],
-                                                                  t0_router_id,
-                                                                  bgp_config['t0_router'])
-
-            # next few lines are wrong!!! new endpoint needed
-            if bgp_config['neighbors']:
-                bgp_payload.update({'neighbors': parse_bgp_neighbors(bgp_config['neighbors'])})
+                                                                  t0_router_id=t0_router_id,
+                                                                  t0_router_name=bgp_config['t0_router'])
+            if 'neighbors' in bgp_config:
+                changes_detected = add_bgp_neighbors(bgp_config['neighbors'],
+                                                     t0_router_id=t0_router_id,
+                                                     t0_router_name=bgp_config['t0_router'])
+    if changes_detected:
+        print('Done adding/updating BGP configs for T0Routers!!\n')
+    else:
+        print('Detected no change with BGP configs for T0Routers!!\n')
 
 
 def load_loadbalancer_monitors():
