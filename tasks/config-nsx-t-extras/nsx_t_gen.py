@@ -860,6 +860,11 @@ def add_ip_prefix_lists():
             changes_detected = True
             print('Adding new IP prefix list: {}'.format(payload))
             client.post(api_endpoint, payload)
+
+            for result in client.get(api_endpoint).json()['results']:
+                if result['display_name'] == payload['display_name']:
+                    global_id_map['IP_PREFIX:' + result['display_name']] = result['id']
+
         elif existing_ip_prefix['stat'] == 'update':
             changes_detected = True
             print('Updating IP prefix list with name {}: {}'.format(payload['display_name'], payload))
@@ -894,17 +899,45 @@ def construct_t0_facts():
                      'inter_t0_addr': t0['inter_tier0_network_ip']}})
 
 
+def check_for_existing_bgp_configs(existing_bgp_configs, new_bgp_config):
+    if len(existing_bgp_configs) == 0:
+        return None
+
+    for existing_bgp_config in existing_bgp_configs:
+        if existing_bgp_config['display_name'] == new_bgp_config['display_name']:
+            return existing_bgp_config
+
+    return None
+
+
 def add_filter_options(config, neighbor):
+    out_prefix_id = None
+    in_prefix_id = None
+    prefix_detected = False
+
     if 'out_filter_ip_prefix' in config:
         global_map_name = 'IP_PREFIX:' + config['out_filter_ip_prefix']
         if global_map_name in global_id_map:
-            neighbor.update({'address_families':
-                            [{'type': 'IPV4_UNICAST',
-                              'enabled': True,
-                              'out_filter_ipprefixlist_id': global_id_map[global_map_name]}]})
+            prefix_detected = True
+            out_prefix_id = global_id_map[global_map_name]
         else:
             print('Error!! No ip prefix list found with name: {}'.format(config['out_filter_ip_prefix']))
             exit(-1)
+    if 'in_filter_ip_prefix' in config:
+        global_map_name = 'IP_PREFIX:' + config['in_filter_ip_prefix']
+        if global_map_name in global_id_map:
+            prefix_detected = True
+            in_prefix_id = global_id_map[global_map_name]
+        else:
+            print('Error!! No ip prefix list found with name: {}'.format(config['in_filter_ip_prefix']))
+            exit(-1)
+    if prefix_detected:
+        neighbor.update({'address_families': [{'type': 'IPV4_UNICAST',
+                                               'enabled': True}]})
+        if out_prefix_id:
+            neighbor['address_families'][0].update({'out_filter_ipprefixlist_id': out_prefix_id})
+        if in_prefix_id:
+            neighbor['address_families'][0].update({'in_filter_ipprefixlist_id': in_prefix_id})
 
 
 def parse_bgp_neighbors(neighbor_configs):
@@ -925,6 +958,40 @@ def parse_bgp_neighbors(neighbor_configs):
             neighbor = config.pop('type')
             parsed_neighbors.append(neighbor)
     return parsed_neighbors
+
+
+def check_for_existing_bgp_communities(existing_community_lists, new_community_list):
+    if len(existing_community_lists) == 0:
+        return None
+
+    for existing_community_list in existing_community_lists:
+        if existing_community_list['display_name'] == new_community_list['display_name']:
+            return existing_community_list
+
+    return None
+
+
+def add_bgp_community_list_configs(community_lists, t0_router_id, t0_router_name):
+    changes_detected = False
+    api_endpoint = '%s/%s/%s' % (ROUTERS_ENDPOINT, t0_router_id, 'routing/bgp/community-lists')
+    existing_community_lists = client.get(api_endpoint).json()['results']
+    for community_list in community_lists:
+        payload = {
+            'display_name': community_list['display_name'],
+            'community_type': 'NormalBGPCommunity',
+            'communities': community_list['communities']
+        }
+        existing_community_list = check_for_existing_bgp_communities(existing_community_lists, payload)
+        if existing_community_list is None:
+            changes_detected = True
+            print('Adding new BGP community list for T0 router{}: {}'.format(t0_router_name, payload))
+            client.post(api_endpoint, payload)
+        else:
+            if existing_community_list['communities'] != payload['communities']:
+                changes_detected = True
+                print('Updating BGP community list for T0 router{}: {}'.format(t0_router_name, payload))
+                client.put(api_endpoint, payload)
+    return changes_detected
 
 
 def add_bgp_configs():
@@ -956,8 +1023,25 @@ def add_bgp_configs():
                 'display_name': bgp_config['display_name'],
                 'as_num': t0_facts[bgp_config['t0_router']]['as_num']
             }
-            if bgp_config['community_lists']:
+
+            existing_bgp_config = check_for_existing_bgp_configs(existing_bgp_configs, bgp_payload)
+            if existing_bgp_config is None:
+                changes_detected = True
+                print('Adding new BGP config for T0 router{}: {}'.format(bgp_config['t0_router'], bgp_payload))
+                client.put(api_endpoint, bgp_payload)
+            else:
+                if existing_bgp_config['as_num'] != bgp_payload['as_num']:
+                    changes_detected = True
+                    print('Updating BGP config AS_NUM for T0 router{}: {}'.format(bgp_config['t0_router'], bgp_payload))
+                    client.put(api_endpoint, bgp_payload)
+
+            if 'community_lists' in bgp_config:
                 bgp_payload.update({'community_lists': bgp_config['community_lists']})
+                changes_detected = add_bgp_community_list_configs(bgp_config['community_lists'],
+                                                                  t0_router_id,
+                                                                  bgp_config['t0_router'])
+
+            # next few lines are wrong!!! new endpoint needed
             if bgp_config['neighbors']:
                 bgp_payload.update({'neighbors': parse_bgp_neighbors(bgp_config['neighbors'])})
 
