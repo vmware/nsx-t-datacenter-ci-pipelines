@@ -91,15 +91,59 @@
         validate_certs: no
       when: iu_status.json.runtime_state != "running"
 
+    - name: Deploy compute manager
+      nsxt_fabric_compute_managers:
+        hostname: "{{hostvars['localhost'].nsx_manager_ip}}"
+        username: "{{hostvars['localhost'].nsx_manager_username}}"
+        password: "{{hostvars['localhost'].nsx_manager_password}}"
+        validate_certs: False
+        display_name: "{{compute_manager_name}}"
+        server: "{{hostvars['localhost'].vcenter_ip}}" # vCenter IP
+        origin_type: vCenter
+        credential:
+          credential_type: UsernamePasswordLoginCredential
+          username: "{{hostvars['localhost'].compute_manager_username}}"
+          password: "{{hostvars['localhost'].compute_manager_password}}"
+        state: present
+      register: compute_manager
+
+    # TODO: change var names
+    - name: Deploy compute manager 2
+      nsxt_fabric_compute_managers:
+        hostname: "{{hostvars['localhost'].nsx_manager_ip}}"
+        username: "{{hostvars['localhost'].nsx_manager_username}}"
+        password: "{{hostvars['localhost'].nsx_manager_password}}"
+        validate_certs: False
+        display_name: "{{compute_manager_2_name}}"
+        server: "{{hostvars['localhost'].compute_manager_2_vcenter_ip}}"
+        origin_type: vCenter
+        credential:
+          credential_type: UsernamePasswordLoginCredential
+          username: "{{hostvars['localhost'].compute_manager_2_username}}"
+          password: "{{hostvars['localhost'].compute_manager_2_password}}"
+        state: present
+      register: compute_manager_2_compute_cluster
+      when:
+      - hostvars['localhost'].compute_manager_2_vcenter_ip is defined
+      - hostvars['localhost'].compute_manager_2_username is defined
+      - hostvars['localhost'].compute_manager_2_password is defined
+
     - name: Install pyvmomi tools dependency
       shell: "cd /tmp; git clone https://github.com/vmware/pyvmomi-community-samples.git; cp -r pyvmomi-community-samples/samples/tools /usr/local/lib/python2.7/dist-packages"
       when:
         - hostvars['localhost'].resource_reservation_off == "true"
 
-    - name: Turn off memory reservation for controllers and edge nodes and power them on
+    - name: Turn off memory reservation for additional controller-managers and power them on
       command: python turn_off_reservation.py --host {{hostvars['localhost'].vcenter_ip}} --user {{hostvars['localhost'].vcenter_username}} --password {{hostvars['localhost'].vcenter_password}} --vm_list {{hostvars[item].hostname}}
       with_items:
         - "{{groups['controllers']}}"
+      when:
+        - groups['controllers'] is defined
+        - hostvars['localhost'].resource_reservation_off == "true"
+
+    - name: Turn off memory reservation for edge nodes and power them on
+      command: python turn_off_reservation.py --host {{hostvars['localhost'].vcenter_ip}} --user {{hostvars['localhost'].vcenter_username}} --password {{hostvars['localhost'].vcenter_password}} --vm_list {{hostvars[item].hostname}}
+      with_items:
         - "{{groups['edge_nodes']}}"
       when:
         - hostvars['localhost'].resource_reservation_off == "true"
@@ -132,6 +176,7 @@
             enable_ssh: "{{hostvars['localhost'].nsx_manager_ssh_enabled}}"
         state: present
       with_items: "{{groups['controllers']}}"
+      when: groups['controllers'] is defined
       register: controller_response
 
     - name: Install ping
@@ -142,6 +187,7 @@
     - name: Wait 120 seconds for controllers to become reachable
       shell: I=0; while ! ping -c 1 -W 2 {{hostvars[item].ip}}; do I=$(( I + 1 )); [ $I -gt 60 ] && exit 1; done; exit 0
       with_items: "{{groups['controllers']}}"
+      when: groups['controllers'] is defined
 
     # TODO: does not support tag
     - name: Create Transport Zones
@@ -158,6 +204,19 @@
         state: "present"
       with_items:
       - "{{transportzones}}"
+
+    - name: Create Transport Zone for the inter T0 network
+      nsxt_transport_zones:
+        hostname: "{{hostvars['localhost'].nsx_manager_ip}}"
+        username: "{{hostvars['localhost'].nsx_manager_username}}"
+        password: "{{hostvars['localhost'].nsx_manager_password}}"
+        validate_certs: False
+        resource_type: "TransportZone"
+        display_name: "{{hostvars['localhost'].inter_t0_transport_zone_name}}"
+        description: "Inter-T0 Transport Zone"
+        transport_type: "VLAN"
+        host_switch_name: "{{inter_t0_host_switch}}"
+        state: "present"
 
     - name: Create uplink profiles for default topology
       nsxt_uplink_profiles:
@@ -206,49 +265,6 @@
         state: present
       register: vtep_pool_object
 
-    - name: Wait 2 minutes before deploying compute manager
-      pause: minutes=2
-
-    - name: Deploy compute manager
-      nsxt_fabric_compute_managers:
-        hostname: "{{hostvars['localhost'].nsx_manager_ip}}"
-        username: "{{hostvars['localhost'].nsx_manager_username}}"
-        password: "{{hostvars['localhost'].nsx_manager_password}}"
-        validate_certs: False
-        display_name: "{{compute_manager_name}}"
-        server: "{{hostvars['localhost'].vcenter_ip}}" # vCenter IP
-        origin_type: vCenter
-        credential:
-          credential_type: UsernamePasswordLoginCredential
-          username: "{{hostvars['localhost'].compute_manager_username}}"
-          password: "{{hostvars['localhost'].compute_manager_password}}"
-        state: present
-      retries: 3
-      delay: 10
-      register: compute_manager
-      until: compute_manager is not failed
-
-    # TODO: change var names
-    - name: Deploy compute manager 2
-      nsxt_fabric_compute_managers:
-        hostname: "{{hostvars['localhost'].nsx_manager_ip}}"
-        username: "{{hostvars['localhost'].nsx_manager_username}}"
-        password: "{{hostvars['localhost'].nsx_manager_password}}"
-        validate_certs: False
-        display_name: "{{compute_manager_2_name}}"
-        server: "{{hostvars['localhost'].compute_manager_2_vcenter_ip}}"
-        origin_type: vCenter
-        credential:
-          credential_type: UsernamePasswordLoginCredential
-          username: "{{hostvars['localhost'].compute_manager_2_username}}"
-          password: "{{hostvars['localhost'].compute_manager_2_password}}"
-        state: present
-      register: compute_manager_2_compute_cluster
-      when:
-      - hostvars['localhost'].compute_manager_2_vcenter_ip is defined
-      - hostvars['localhost'].compute_manager_2_username is defined
-      - hostvars['localhost'].compute_manager_2_password is defined
-
     - name: Add Edge VM as transport node
       nsxt_transport_nodes:
         hostname: "{{hostvars['localhost'].nsx_manager_ip}}"
@@ -278,9 +294,17 @@
             pnics:
             - device_name: fp-eth0
               uplink_name: "{{uplink_1_name}}"
+          - host_switch_profiles:
+            - name: "{{hostvars[item].edge_uplink_profile_name}}"
+              type: UplinkHostSwitchProfile
+            host_switch_name: "{{inter_t0_host_switch}}"
+            pnics:
+            - device_name: fp-eth2
+              uplink_name: "{{uplink_1_name}}"
         transport_zone_endpoints:
         - transport_zone_name: "{{overlay_transport_zone}}"
         - transport_zone_name: "{{vlan_transport_zone}}"
+        - transport_zone_name: "{{hostvars['localhost'].inter_t0_transport_zone_name}}"
         node_deployment_info:
           resource_type: "EdgeNode"
           display_name: "{{hostvars[item].hostname}}"

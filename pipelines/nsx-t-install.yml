@@ -38,6 +38,7 @@ nsx_t_gen_params: &nsx-t-gen-params
   vtep_ip_pool_start_int: ((vtep_ip_pool_start))
   vtep_ip_pool_end_int: ((vtep_ip_pool_end))
 
+  edge_cluster_name_int: ((edge_cluster_name))
   edge_ips_int: ((edge_ips))
   edge_default_gateway_int: ((edge_default_gateway))
   edge_ip_prefix_length_int: ((edge_ip_prefix_length))
@@ -71,8 +72,10 @@ nsx_t_gen_params: &nsx-t-gen-params
   tier0_uplink_next_hop_ip_int: ((tier0_uplink_next_hop_ip))
   tier0_uplink_port_ip_2_int: ((tier0_uplink_port_ip_2))
   tier0_ha_vip_int: ((tier0_ha_vip))
-  tier0_as_num_int: ((BGP_as_number))
+  vlan_logical_switch_name_int: ((vlan_logical_switch_name))
+  bgp_as_number_int: ((bgp_as_number))
   inter_tier0_network_ip_int: ((inter_tier0_network_ip))
+  inter_tier0_network_ip_2_int: ((inter_tier0_network_ip_2))
 
   compute_manager_2_username_int: ((compute_manager_2_username))
   compute_manager_2_password_int: ((compute_manager_2_password))
@@ -86,8 +89,10 @@ nsx_t_gen_params: &nsx-t-gen-params
   nsx_t_csr_request_spec_int: ((nsx_t_csr_request_spec))
   nsx_t_lbr_spec_int: ((nsx_t_lbr_spec))
 
-  inter_t0_ls_name_int: ((inter_t0_ls_name))
-  inter_t0_cidr: ((inter_t0_cidr))
+  inter_t0_logical_switch_name_int: ((inter_t0_logical_switch_name))
+  inter_t0_transport_zone_name_int: ((inter_t0_transport_zone_name))
+  inter_t0_cidr_int: ((inter_t0_cidr))
+  inter_t0_vlan_int: ((inter_t0_vlan))
 
 groups:
 
