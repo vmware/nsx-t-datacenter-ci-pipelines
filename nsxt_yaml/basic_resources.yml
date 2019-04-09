@@ -35,7 +35,7 @@
         hostname: "{{hostvars['localhost'].nsx_manager_ip}}"
         username: "{{hostvars['localhost'].nsx_manager_username}}"
         password: "{{hostvars['localhost'].nsx_manager_password}}"
-        display_name: "{{ edge_cluster_name }}"
+        display_name: "{{ hostvars[item].edge_cluster_name }}"
         validate_certs: False
         members: "{{ hostvars[item].members }}"
         state: present
@@ -48,7 +48,7 @@
         hostname: "{{hostvars['localhost'].nsx_manager_ip}}"
         username: "{{hostvars['localhost'].nsx_manager_username}}"
         password: "{{hostvars['localhost'].nsx_manager_password}}"
-        display_name: "{{ edge_cluster_name }}"
+        display_name: "{{ hostvars['localhost'].edge_cluster_name }}"
         validate_certs: False
         members: "{{ shared_edge_members }}"
         state: present
@@ -169,21 +169,6 @@
 ###############################################################################
 # Tier 0 Routers
 ###############################################################################
-    - name: NSX-T Shared T0 Logical Router
-      nsxt_logical_routers:
-        hostname: "{{hostvars['localhost'].nsx_manager_ip}}"
-        username: "{{hostvars['localhost'].nsx_manager_username}}"
-        password: "{{hostvars['localhost'].nsx_manager_password}}"
-        validate_certs: False
-        resource_type: LogicalRouter
-        description: "NSX-T Shared T0 Logical Router"
-        display_name: "{{hostvars['shared_t0'].tier0_router_name}}"
-        edge_cluster_name: "{{edge_cluster_name}}"
-        router_type: TIER0
-        high_availability_mode: ACTIVE_STANDBY
-        state: present
-      register: shared_t0
-
     - name: NSX-T Tenant T0 Logical Routers
       nsxt_logical_routers:
         hostname: "{{hostvars['localhost'].nsx_manager_ip}}"
@@ -197,12 +182,8 @@
         router_type: TIER0
         high_availability_mode: ACTIVE_STANDBY
         state: present
-      with_items:
-      - "{{groups[tenant_t0s]}}"
-      # Per Ansible documentation, After using register with a loop, the data structure placed in the variable
-      # will contain a results attribute that is a list of all responses from the module.
-      # https://docs.ansible.com/ansible/2.4/playbooks_loops.html
-      register: tenant_t0s
+      with_items: "{{ groups[tier0_routers] }}"
+      register: t0s
 
       ## TODO: this need to be refactored
     - name: Add static routes on shared T0
@@ -214,24 +195,11 @@
         logical_router_name: "{{hostvars['localhost'].tier0_router_name}}"
         next_hops:
         - administrative_distance: '1'
-          ip_address: "{{hostvars['shared_t0'].tier0_uplink_next_hop_ip}}"
+          ip_address: "{{hostvars['localhost'].tier0_uplink_next_hop_ip}}"
         network: #TODO: mgmt network cidr
         state: present
 
-    - name: Add static routes for 0.0.0.0 on shared T0
-      nsxt_logical_router_static_routes:
-        hostname: "{{hostvars['localhost'].nsx_manager_ip}}"
-        username: "{{hostvars['localhost'].nsx_manager_username}}"
-        password: "{{hostvars['localhost'].nsx_manager_password}}"
-        validate_certs: False
-        logical_router_name: "{{hostvars['localhost'].tier0_router_name}}"
-        next_hops:
-        - administrative_distance: '1'
-          ip_address: "{{hostvars['shared_t0'].tier0_uplink_next_hop_ip}}"
-        network: 0.0.0.0/0
-        state: present
-
-    - name: Add static routes for 0.0.0.0 on tenant T0s
+    - name: Add static routes for 0.0.0.0 on all T0s
       nsxt_logical_router_static_routes:
         hostname: "{{hostvars['localhost'].nsx_manager_ip}}"
         username: "{{hostvars['localhost'].nsx_manager_username}}"
@@ -243,38 +211,55 @@
           ip_address: "{{item.tier0_uplink_next_hop_ip}}"
         network: 0.0.0.0/0
         state: present
-      with_items: "{{ groups['tenant_t0s']) }}"
+      with_items: "{{ groups['tier0_routers'] }}"
 
-    - name: Create VLAN logical switch
+    - name: Create VLAN logical switch for inter T0 network
       nsxt_logical_switches:
         hostname: "{{hostvars['localhost'].nsx_manager_ip}}"
         username: "{{hostvars['localhost'].nsx_manager_username}}"
         password: "{{hostvars['localhost'].nsx_manager_password}}"
         validate_certs: False
-        display_name: "{{vlan_logical_switch}}"
+        display_name: "{{hostvars['localhost'].inter_t0_logical_switch_name}}"
+        admin_state: UP
+        transport_zone_name: "{{hostvars['localhost'].inter_t0_transport_zone_name}}"
+        vlan: "{{hostvars['localhost'].inter_t0_vlan}}"
+        state: present
+      register: inter_t0_ls
+
+    - name: Create VLAN logical switch for T0 routers
+      nsxt_logical_switches:
+        hostname: "{{hostvars['localhost'].nsx_manager_ip}}"
+        username: "{{hostvars['localhost'].nsx_manager_username}}"
+        password: "{{hostvars['localhost'].nsx_manager_password}}"
+        validate_certs: False
+        display_name: "{{ hostvars[item].vlan_logical_switch_name }}"
         replication_mode: SOURCE
         admin_state: UP
         transport_zone_name: "{{vlan_transport_zone}}"
         vlan: "{{vlan_logical_switch_vlan}}"
         state: present
-      when:
-        - t0.changed == true
+      with_items: "{{ groups['tier0_routers'] }}"
+      when: t0s.changed == true
 
-    - name: Logical Switch Port for uplink_1
+###############################################################################
+# Tier 0 uplinks
+###############################################################################
+
+    - name: Logical Switch Ports for uplink_1 (T0 vlans)
       nsxt_logical_ports:
         hostname: "{{hostvars['localhost'].nsx_manager_ip}}"
         username: "{{hostvars['localhost'].nsx_manager_username}}"
         password: "{{hostvars['localhost'].nsx_manager_password}}"
         validate_certs: False
         display_name: lsp_for_uplink_1
-        logical_switch_name: "{{vlan_logical_switch}}"
+        logical_switch_name: "{{ hostvars[item].vlan_logical_switch_name }}"
         admin_state: UP
         state: present
-      register: vlan_lsp
-      when:
-        - t0.changed == true
+      with_items: "{{ groups['tier0_routers'] }}"
+      register: vlan_uplink1_lsps
+      when: t0s.changed == true
 
-    - name: Create logical router port for uplink1
+    - name: Logical router ports for uplink1
       nsxt_logical_router_ports:
         hostname: "{{hostvars['localhost'].nsx_manager_ip}}"
         username: "{{hostvars['localhost'].nsx_manager_username}}"
@@ -282,38 +267,38 @@
         validate_certs: False
         display_name: t0_uplink_1
         resource_type: LogicalRouterUpLinkPort
-        logical_router_name: "{{ item.tier0_router_name }}"
+        logical_router_name: "{{ hostvars[item.1].tier0_router_name }}"
         linked_logical_switch_port_id:
           target_type: LogicalPort
-          target_id: "{{vlan_lsp.id}}"
-        # Subnet field is not required
+          target_id: "{{vlan_uplink1_lsps.results[item.0].id}}"
         subnets:
         - ip_addresses:
-          - "{{hostvars['localhost'].tier0_uplink_port_ip}}"
-          prefix_length: "{{hostvars['localhost'].tier0_uplink_port_subnet}}"
+          - "{{ hostvars[item.1].tier0_uplink_port_ip }}"
+          prefix_length: "{{ hostvars[item.1].tier0_uplink_port_subnet }}"
         edge_cluster_member_index:
           - 0
         state: present
-      register: uplink_lrp
-      when:
-        - t0.changed == true
+      with_indexed_items: "{{ groups['tier0_routers'] }}"
+      register: uplink1_lrps
+      when: t0s.changed == true
 
-    - name: Logical Switch Port for uplink_2
+    - name: Logical Switch Ports for uplink_2 (T0 vlans)
       nsxt_logical_ports:
         hostname: "{{hostvars['localhost'].nsx_manager_ip}}"
         username: "{{hostvars['localhost'].nsx_manager_username}}"
         password: "{{hostvars['localhost'].nsx_manager_password}}"
         validate_certs: False
         display_name: lsp_for_uplink_2
-        logical_switch_name: "{{vlan_logical_switch}}"
+        logical_switch_name: "{{ hostvars[item].vlan_logical_switch_name }}"
         admin_state: UP
         state: present
-      register: vlan_lsp_2
+      with_items: "{{ groups['tier0_routers'] }}"
+      register: vlan_uplink2_lsps
       when:
-        - hostvars['localhost'].tier0_uplink_port_ip_2 is defined
-        - t0.changed == true
+        - hostvars[item].tier0_uplink_port_ip_2 is defined and hostvars[item].tier0_uplink_port_ip_2 != "null"
+        - t0s.changed == true
 
-    - name: Create logical router port for uplink2
+    - name: Create logical router ports for uplink2
       nsxt_logical_router_ports:
         hostname: "{{hostvars['localhost'].nsx_manager_ip}}"
         username: "{{hostvars['localhost'].nsx_manager_username}}"
@@ -321,21 +306,22 @@
         validate_certs: False
         display_name: t0_uplink_2
         resource_type: LogicalRouterUpLinkPort
-        logical_router_name: "{{ item.tier0_router_name }}"
+        logical_router_name: "{{ hostvars[item.1].tier0_router_name }}"
         linked_logical_switch_port_id:
           target_type: LogicalPort
-          target_id: "{{vlan_lsp_2.id}}"
+          target_id: "{{vlan_uplink2_lsps.results[item.0].id}}"
         subnets:
         - ip_addresses:
-          - "{{hostvars['localhost'].tier0_uplink_port_ip_2}}"
-          prefix_length: "{{hostvars['localhost'].tier0_uplink_port_subnet}}"
+          - "{{hostvars[item.1].tier0_uplink_port_ip_2}}"
+          prefix_length: "{{hostvars[item.1].tier0_uplink_port_subnet}}"
         edge_cluster_member_index:
           - 1
         state: present
-      register: uplink_lrp_2
+      with_indexed_items: "{{ groups['tier0_routers'] }}"
+      register: uplink2_lrps
       when:
-        - hostvars['localhost'].tier0_uplink_port_ip_2 is defined
-        - t0.changed == true
+        - hostvars[item.1].tier0_uplink_port_ip_2 is defined and hostvars[item.1].tier0_uplink_port_ip_2 != "null"
+        - t0s.changed == true
 
     - name: HA VIP for T0 Router
       nsxt_logical_routers:
@@ -345,8 +331,8 @@
         validate_certs: False
         resource_type: LogicalRouter
         description: "NSX-T T0 Logical Router"
-        display_name: "{{hostvars['localhost'].tier0_router_name}}"
-        edge_cluster_name: "{{ edge_cluster_name }}"
+        display_name: "{{ hostvars[item.1].tier0_router_name }}"
+        edge_cluster_name: "{{ hostvars[item.1].edge_cluster_name }}"
         router_type: TIER0
         high_availability_mode: ACTIVE_STANDBY
         advanced_config:
@@ -354,13 +340,92 @@
           - enabled: True
             ha_vip_subnets:
             - active_vip_addresses:
-              - "{{hostvars['localhost'].tier0_ha_vip}}"
-              prefix_length: "{{hostvars['localhost'].tier0_uplink_port_subnet}}"
+              - "{{hostvars[item.1].tier0_ha_vip}}"
+              prefix_length: "{{hostvars[item.1].tier0_uplink_port_subnet}}"
             redundant_uplink_port_ids:
-            - "{{uplink_lrp.id}}"
-            - "{{uplink_lrp_2.id}}"
+            - "{{ uplink1_lrps.results[item.0].id }}"
+            - "{{ uplink2_lrps.results[item.0].id }}"
         state: present
+      with_indexed_items: "{{ groups['tier0_routers'] }}"
       when:
-        - hostvars['localhost'].tier0_uplink_port_ip_2 is defined
-        - hostvars['localhost'].tier0_ha_vip is defined
-        - t0.changed == true
+        - hostvars[item.1].tier0_uplink_port_ip_2 is defined and hostvars[item.1].tier0_uplink_port_ip_2 != "null"
+        - hostvars[item.1].tier0_ha_vip is defined and hostvars[item.1].tier0_ha_vip != "null"
+        - t0s.changed == true
+
+    - name: Logical Switch Ports for inter-t0 uplink1
+      nsxt_logical_ports:
+        hostname: "{{hostvars['localhost'].nsx_manager_ip}}"
+        username: "{{hostvars['localhost'].nsx_manager_username}}"
+        password: "{{hostvars['localhost'].nsx_manager_password}}"
+        validate_certs: False
+        display_name: lsp_for_inter_t0_uplink1
+        logical_switch_name: "{{ hostvars['localhost'].inter_t0_logical_switch_name }}"
+        admin_state: UP
+        state: present
+      with_items: "{{ groups['tier0_routers'] }}"
+      register: inter_t0_uplink1_lsps
+      when: t0s.changed == true
+
+    - name: Logical router ports for uplink1
+      nsxt_logical_router_ports:
+        hostname: "{{hostvars['localhost'].nsx_manager_ip}}"
+        username: "{{hostvars['localhost'].nsx_manager_username}}"
+        password: "{{hostvars['localhost'].nsx_manager_password}}"
+        validate_certs: False
+        display_name: inter_t0_uplink_1
+        resource_type: LogicalRouterUpLinkPort
+        logical_router_name: "{{ hostvars[item.1].tier0_router_name }}"
+        linked_logical_switch_port_id:
+          target_type: LogicalPort
+          target_id: "{{inter_t0_uplink1_lsps.results[item.0].id}}"
+        subnets:
+        - ip_addresses:
+          - "{{ hostvars[item.1].inter_tier0_network_ip }}"
+          prefix_length: "{{ hostvars['localhost'].inter_t0_cidr[-2:] }}"
+        edge_cluster_member_index:
+        - 0
+        state: present
+      with_indexed_items: "{{ groups['tier0_routers'] }}"
+      register: inter_t0_uplink1_lrps
+      when: t0s.changed == true
+
+    - name: Logical Switch Ports for inter-t0 uplink_2
+      nsxt_logical_ports:
+        hostname: "{{hostvars['localhost'].nsx_manager_ip}}"
+        username: "{{hostvars['localhost'].nsx_manager_username}}"
+        password: "{{hostvars['localhost'].nsx_manager_password}}"
+        validate_certs: False
+        display_name: lsp_for_inter_t0_uplink2
+        logical_switch_name: "{{ hostvars['localhost'].inter_t0_logical_switch_name }}"
+        admin_state: UP
+        state: present
+      with_items: "{{ groups['tier0_routers'] }}"
+      register: inter_t0_uplink2_lsps
+      when:
+      - hostvars[item].inter_tier0_network_ip_2 is defined and hostvars[item].inter_tier0_network_ip_2 != "null"
+      - t0s.changed == true
+
+    - name: Create logical router ports for uplink2
+      nsxt_logical_router_ports:
+        hostname: "{{hostvars['localhost'].nsx_manager_ip}}"
+        username: "{{hostvars['localhost'].nsx_manager_username}}"
+        password: "{{hostvars['localhost'].nsx_manager_password}}"
+        validate_certs: False
+        display_name: inter_t0_uplink_2
+        resource_type: LogicalRouterUpLinkPort
+        logical_router_name: "{{ hostvars[item.1].tier0_router_name }}"
+        linked_logical_switch_port_id:
+          target_type: LogicalPort
+          target_id: "{{inter_t0_uplink2_lsps.results[item.0].id}}"
+        subnets:
+        - ip_addresses:
+          - "{{hostvars[item.1].inter_tier0_network_ip_2}}"
+          prefix_length: "{{ hostvars['localhost'].inter_t0_cidr[-2:] }}"
+        edge_cluster_member_index:
+        - 1
+        state: present
+      with_indexed_items: "{{ groups['tier0_routers'] }}"
+      register: uplink2_lrps
+      when:
+      - hostvars[item.1].inter_tier0_network_ip_2 is defined and hostvars[item.1].inter_tier0_network_ip_2 != "null"
+      - t0s.changed == true

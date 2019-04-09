@@ -36,7 +36,7 @@ def create_tenant_edge_params():
                                'edge_root_password',
                                'edge_deployment_size',
                                'edge_uplink_profile_vlan',
-                               'edge-uplink_profile_name',
+                               'edge_uplink_profile_name',
                                'vc_datacenter_for_edge',
                                'vc_cluster_for_edge',
                                'vc_datastore_for_edge',
@@ -62,6 +62,7 @@ def create_tenant_edge_params():
                 members_line += "{\"transport_node_name\":\"%s-%s\"}," \
                                 % (edge_cluster['edge_transport_node_prefix'], i + 1)
             members_line = members_line[:-1] + "]'"
+            members_line += " edge_cluster_name=%s" % edge_cluster['edge_cluster_name']
             members_line += " edge_uplink_profile_vlan=%s" % edge_cluster['edge_uplink_profile_vlan']
             members_line += " edge_uplink_profile_name=%s\n" % edge_cluster['edge_uplink_profile_name']
             cluster_member_spec.append(members_line)
@@ -72,26 +73,28 @@ def create_tenant_edge_params():
 
 
 def create_tenant_t0_params():
-    t0_specs = os.getenv('tenant_t0s_int')
-    tenant_t0s = json.loads(t0_specs)
+    tenant_t0_specs = os.getenv('tenant_t0s_int')
+    tenant_t0s = json.loads(tenant_t0_specs)
+    shared_t0_params = ['tier0_router_name', 'edge_cluster_name', 'tier0_uplink_port_ip',
+                        'tier0_uplink_port_subnet', 'tier0_uplink_next_hop_ip', 'vlan_logical_switch_name',
+                        'tier0_uplink_port_ip_2', 'tier0_ha_vip', 'bgp_as_number',
+                        'inter_tier0_network_ip', 'inter_tier0_network_ip_2']
 
-    with open('tenant_t0s', 'w') as tenant_t0_ouput_file:
-        tenant_t0_ouput_file.write('\n[tenant_t0s]\n')
+    with open('t0s', 'w') as t0_ouput_file:
+        t0_ouput_file.write('\n[tier0_routers]\n')
+        shared_t0_line = 'shared-t0 '
+        for param in shared_t0_params:
+            shared_t0_line += '%s=%s ' % (param, os.getenv(param + '_int'))
+        shared_t0_line += 'is_tanent=False'
+        t0_ouput_file.write(shared_t0_line + '\n')
+
+        params_to_write = shared_t0_params
+        params_to_write.extend(['is_tanent'])
         for idx, t0 in enumerate(tenant_t0s):
             t0_line = 'tenant-%s-t0 ' % idx
-            params_to_write = ['tier0_router_name',
-                               'uplink_port_ip',
-                               'uplink_port_subnet',
-                               'uplink_next_hop_ip',
-                               'uplink_port_ip_2',
-                               'ha_vip',
-                               'edge_cluster',
-                               'inter_tier0_network_ip',
-                               'is_tanent',
-                               'BGP_as_number']
             for param in params_to_write:
                 t0_line += '%s=%s ' % (param, t0[param])
-            tenant_t0_ouput_file.write(t0_line + '\n')
+            t0_ouput_file.write(t0_line + '\n')
 
 
 def create_cluster_spec():
@@ -113,7 +116,7 @@ def get_args():
 
     parser.add_argument('-r', '--resource',
                         required=True,
-                        default='edge_t0_spec',
+                        default='edge_spec',
                         action='store')
 
     args = parser.parse_args()
@@ -122,8 +125,9 @@ def get_args():
 
 def main():
     args = get_args()
-    if args.resource == 'edge_t0_spec':
+    if args.resource == 'edge_spec':
         create_tenant_edge_params()
+    elif args.resource == 't0_spec':
         create_tenant_t0_params()
     elif args.resource == 'cluster_spec':
         create_cluster_spec()

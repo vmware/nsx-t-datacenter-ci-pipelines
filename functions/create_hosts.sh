@@ -7,7 +7,6 @@ function create_manager_host {
   manager_hostname="${nsx_manager_hostname_prefix_int-1}"
   # The following need to be placed under [localhost:vars] section
   cat >> manager_host <<-EOF
-
 nsx_manager_ip="$manager_ip"
 nsx_manager_username="$nsx_manager_username_int"
 nsx_manager_password="$nsx_manager_password_int"
@@ -15,6 +14,7 @@ nsx_manager_assigned_hostname="$manager_hostname"
 nsx_manager_root_pwd="$nsx_manager_root_pwd_int"
 nsx_manager_cli_pwd="$nsx_manager_cli_pwd_int"
 nsx_manager_deployment_size="$nsx_manager_deployment_size_int"
+
 EOF
 }
 
@@ -36,8 +36,8 @@ function create_controller_hosts {
   for ((i=1;i<$num_controllers;++i)); do
     controller_ip=${nsx_manager_ips[i]}
     count=$((i+1))
-    hostname="${controller_hostname_prefix_int}-${count}.${dns_domain_int}"
-    controller_host="controller-${count} ip=$controller_ip hostname=${hostname} default_gateway=${controller_default_gateway_int} prefix_length=$controller_ip_prefix_length_int"
+    hostname="${nsx_manager_hostname_prefix_int}-${count}.${dns_domain_int}"
+    controller_host="controller-${count} ip=${controller_ip} hostname=${hostname}"
     echo "$controller_host" >> ctrl_vms
   done
 
@@ -151,13 +151,6 @@ netmask="$netmask_int"
 nsx_image_webserver="$nsx_image_webserver_int"
 ova_file_name="$ova_file_name_int"
 
-nsx_manager_ip="$nsx_manager_ip_int"
-nsx_manager_username="$nsx_manager_username_int"
-nsx_manager_password="$nsx_manager_password_int"
-nsx_manager_assigned_hostname="$nsx_manager_assigned_hostname_int"
-nsx_manager_root_pwd="$nsx_manager_root_pwd_int"
-nsx_manager_deployment_size="$nsx_manager_deployment_size_int"
-
 compute_manager_username="$compute_manager_username_int"
 compute_manager_password="$compute_manager_password_int"
 edge_uplink_profile_vlan="$edge_uplink_profile_vlan_int"
@@ -170,6 +163,18 @@ vtep_ip_pool_end="$vtep_ip_pool_end_int"
 resource_reservation_off="$resource_reservation_off_int"
 nsx_manager_ssh_enabled="$nsx_manager_ssh_enabled_int"
 unified_appliance="$unified_appliance_int"
+
+edge_cluster_name="$edge_cluster_name_int"
+tier0_router_name="$tier0_router_name_int"
+tier0_uplink_port_ip="$tier0_uplink_port_ip_int"
+tier0_uplink_port_subnet="$tier0_uplink_port_subnet_int"
+tier0_uplink_next_hop_ip="$tier0_uplink_next_hop_ip_int"
+
+inter_t0_logical_switch_name="$inter_t0_logical_switch_name_int"
+inter_t0_transport_zone_name="$inter_t0_transport_zone_name_int"
+inter_t0_cidr="$inter_t0_cidr_int"
+inter_t0_vlan="$inter_t0_vlan_int"
+
 EOF
 
   if [[ $unified_appliance_int == "true" ]]; then
@@ -178,9 +183,12 @@ EOF
     echo "nsx_manager_role=nsx-manager" >> hosts
   fi
 
+  create_manager_host
+  cat manager_host >> hosts
+
   python ${FUNCTIONS_DIR}/create_tenant_resources.py --resource cluster_spec
   cat cluster_spec >> hosts
-  rm cluster_spec
+  echo "" >> hosts
 
   set_list_var_and_strip_whitespaces esx_available_vmnic_int hosts
   set_list_var_and_strip_whitespaces clusters_to_install_nsx_int hosts
@@ -194,15 +202,6 @@ EOF
     fi
   done
 
-  cat >> hosts <<-EOF
-
-[shared_t0]
-tier0_router_name="$tier0_router_name_int"
-tier0_uplink_port_ip="$tier0_uplink_port_ip_int"
-tier0_uplink_port_subnet="$tier0_uplink_port_subnet_int"
-tier0_uplink_next_hop_ip="$tier0_uplink_next_hop_ip_int"
-EOF
-
   t0_optional_params=("tier0_ha_vip_int" "tier0_uplink_port_ip_2_int")
   for param in "${t0_optional_params[@]}"; do
     param_val="${!param}"
@@ -213,17 +212,21 @@ EOF
 
   create_edge_hosts
   create_controller_hosts
-  python ${FUNCTIONS_DIR}/create_tenant_resources.py --resource edge_t0_spec
+  python ${FUNCTIONS_DIR}/create_tenant_resources.py --resource edge_spec
+  python ${FUNCTIONS_DIR}/create_tenant_resources.py --resource t0_spec
 
-  cat ctrl_vms >> hosts
-  echo "" >> hosts
+  if [[ -f ctrl_vms ]]; then
+    cat ctrl_vms >> hosts
+    echo "" >> hosts
+    rm ctrl_vms
+  fi
   cat edge_vms >> hosts
   echo "" >> hosts
   cat tenant_edges >> hosts
   echo "" >> hosts
-  cat tenant_t0s >> hosts
+  cat t0s >> hosts
 
-  rm ctrl_vms edge_vms tenant_edges tenant_t0s
+  rm cluster_spec edge_vms tenant_edges t0s
 
   if [[ $esx_ips_int != ""  &&  $esx_ips_int != "null" ]]; then
     create_esx_hosts
