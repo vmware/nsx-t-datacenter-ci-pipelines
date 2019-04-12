@@ -696,6 +696,10 @@ def generate_self_signed_cert():
           + '\n    Update response code:{}'.format(update_csr_response.status_code))
 
 
+##############################
+# T0 Route redistribution
+##############################
+
 def set_t0_route_redistribution():
     for key in global_id_map:
         if key.startswith('ROUTER:TIER0'):
@@ -711,6 +715,40 @@ def set_t0_route_redistribution():
             }
             resp = client.put(api_endpoint, payload)
     print('Done enabling route redistribution for T0Routers\n')
+
+
+def check_for_existing_redistribution_rules(existing_rules, new_rule):
+    if len(existing_rules) == 0:
+        return None
+    new_rule_list = new_rule['rules']
+    for existing_rule in existing_rules:
+        existing_rule_spec, new_rule_spec = [sorted(l, key=itemgetter('display_name'))
+                                             for l in (existing_rule['rules'], new_rule_list)]
+        if not any(x != y for x, y in zip(existing_rule_spec, new_rule_spec)):
+            return existing_rule
+    return None
+
+
+def add_redistribution_rules(rules, t0_router_id, t0_router_name):
+    changes_detected = False
+    api_endpoint = '%s/%s/%s' % (ROUTERS_ENDPOINT, t0_router_id, 'routing/redistribution/rules')
+    existing_rules = client.get(api_endpoint).json()['results']
+    for rule in rules:
+        rule_payload = {
+            'rules': [{
+                'display_name': rule['rule_name'],
+                'destination': 'BGP',
+                'sources': rule['sources']
+            }]
+        }
+        existing_rule = check_for_existing_redistribution_rules(existing_rules, rule_payload)
+        if existing_rule is None:
+            changes_detected = True
+            print('Adding new BGP redistribution rule for T0 router{}: {}'.format(t0_router_name, rule_payload))
+            client.put(api_endpoint, rule_payload)
+        else:
+            print('BGP redistribution rule already up to date!')
+    return changes_detected
 
 
 ##############################
@@ -851,7 +889,6 @@ def add_ip_prefix_lists():
         existing_ip_prefix_list = client.get(api_endpoint).json()['results']
         payload = {
             'resource_type': 'IPPrefixList',
-            'description': prefix_list['description'],
             'display_name': prefix_list['display_name'],
             'prefixes': prefix_list['prefixes']
         }
@@ -884,10 +921,12 @@ def add_ip_prefix_lists():
 
 def construct_t0_facts():
     shared_t0_name = os.getenv('tier0_router_name_int', '')
-    shared_t0_as_num = os.getenv('tier0_as_num_int', '')
+    shared_t0_as_num = os.getenv('bgp_as_number_int', '')
     shared_t0_inter_network_addr = os.getenv('inter_tier0_network_ip_int', '')
+    shared_t0_inter_network_addr2 = os.getenv('inter_tier0_network_ip_2_int', '')
     t0_facts.update({shared_t0_name: {'as_num': shared_t0_as_num,
-                                      'inter_t0_addr': shared_t0_inter_network_addr}})
+                                      'inter_t0_addr': shared_t0_inter_network_addr,
+                                      'inter_t0_addr2': shared_t0_inter_network_addr2}})
 
     tanent_t0_specs = os.getenv('tenant_t0s_int')
     tenant_t0s = yaml.load(tanent_t0_specs)
@@ -895,96 +934,18 @@ def construct_t0_facts():
         for t0 in tenant_t0s:
             t0_facts.update({
                 t0['tier0_router_name']:
-                    {'as_num': t0['BGP_as_number'],
-                     'inter_t0_addr': t0['inter_tier0_network_ip']}})
+                    {'as_num': t0['bgp_as_number'],
+                     'inter_t0_addr': t0['inter_tier0_network_ip'],
+                     'inter_t0_addr2': t0['inter_tier0_network_ip_2']}})
 
 
 def check_for_existing_bgp_configs(existing_bgp_configs, new_bgp_config):
     if len(existing_bgp_configs) == 0:
         return None
-
     for existing_bgp_config in existing_bgp_configs:
         if existing_bgp_config['display_name'] == new_bgp_config['display_name']:
             return existing_bgp_config
-
     return None
-
-
-def add_filter_options(config, neighbor):
-    out_prefix_id = None
-    in_prefix_id = None
-    prefix_detected = False
-
-    if 'out_filter_ip_prefix' in config:
-        global_map_name = 'IP_PREFIX:' + config['out_filter_ip_prefix']
-        if global_map_name in global_id_map:
-            prefix_detected = True
-            out_prefix_id = global_id_map[global_map_name]
-        else:
-            print('Error!! No ip prefix list found with name: {}'.format(config['out_filter_ip_prefix']))
-            exit(-1)
-    if 'in_filter_ip_prefix' in config:
-        global_map_name = 'IP_PREFIX:' + config['in_filter_ip_prefix']
-        if global_map_name in global_id_map:
-            prefix_detected = True
-            in_prefix_id = global_id_map[global_map_name]
-        else:
-            print('Error!! No ip prefix list found with name: {}'.format(config['in_filter_ip_prefix']))
-            exit(-1)
-    if prefix_detected:
-        neighbor.update({'address_families': [{'type': 'IPV4_UNICAST',
-                                               'enabled': True}]})
-        if out_prefix_id:
-            neighbor['address_families'][0].update({'out_filter_ipprefixlist_id': out_prefix_id})
-        if in_prefix_id:
-            neighbor['address_families'][0].update({'in_filter_ipprefixlist_id': in_prefix_id})
-
-
-def parse_bgp_neighbor(config):
-    if config['type'] == 't0_router':
-        t0_router = config['t0_router_name']
-        if t0_router in t0_facts:
-            neighbor = {'display_name': t0_router,
-                        'neighbor_address': t0_facts[t0_router]['inter_t0_addr'],
-                        'remote_as_num': t0_facts[t0_router]['as_num']}
-            add_filter_options(config, neighbor)
-            return neighbor
-        else:
-            print('Error!! No T0Router found with name: {}'.format(t0_router))
-            exit(-1)
-    elif config['type'] == 'address':
-        neighbor = config.pop('type')
-        return neighbor
-
-
-def check_for_existing_bgp_neighbors(existing_neighbors, new_neighbor):
-    if len(existing_neighbors) == 0:
-        return None
-    for existing_neighbor in existing_neighbors:
-        if existing_neighbor['neighbor_address'] == new_neighbor['neighbor_address']:
-            return existing_neighbor
-    return None
-
-
-def add_bgp_neighbors(neighbors, t0_router_id, t0_router_name):
-    changes_detected = False
-    api_endpoint = '%s/%s/%s' % (ROUTERS_ENDPOINT, t0_router_id, 'routing/bgp/neighbors')
-    existing_neighbors = client.get(api_endpoint).json()['results']
-    for neighbor in neighbors:
-        neighbor_payload = parse_bgp_neighbor(neighbor)
-        existing_neighbor = check_for_existing_bgp_neighbors(existing_neighbors, neighbor_payload)
-        if existing_neighbor is None:
-            changes_detected = True
-            print('Adding new BGP neighbor for T0 router{}: {}'.format(t0_router_name, neighbor_payload))
-            client.post(api_endpoint, neighbor_payload)
-        else:
-            if any(x != y for x, y in zip(existing_neighbor['address_families'],
-                                          neighbor_payload['address_families'])):
-                changes_detected = True
-                print('Adding new BGP neighbor for T0 router{}: {}'.format(t0_router_name, neighbor_payload))
-                api_endpoint += '/%s' % existing_neighbor['id']
-                client.put(api_endpoint, neighbor_payload)
-    return changes_detected
 
 
 def check_for_existing_bgp_communities(existing_community_lists, new_community_list):
@@ -1016,6 +977,90 @@ def add_bgp_community_list_configs(community_lists, t0_router_id, t0_router_name
                 changes_detected = True
                 print('Updating BGP community list for T0 router{}: {}'.format(t0_router_name, payload))
                 client.put(api_endpoint, payload)
+    return changes_detected
+
+
+def add_filter_options(config, neighbor):
+    out_prefix_id = None
+    in_prefix_id = None
+    prefix_detected = False
+
+    if 'out_filter_ip_prefix' in config:
+        global_map_name = 'IP_PREFIX:' + config['out_filter_ip_prefix']
+        if global_map_name in global_id_map:
+            prefix_detected = True
+            out_prefix_id = global_id_map[global_map_name]
+        else:
+            print('Error!! No ip prefix list found with name: {}'.format(config['out_filter_ip_prefix']))
+            exit(-1)
+    if 'in_filter_ip_prefix' in config:
+        global_map_name = 'IP_PREFIX:' + config['in_filter_ip_prefix']
+        if global_map_name in global_id_map:
+            prefix_detected = True
+            in_prefix_id = global_id_map[global_map_name]
+        else:
+            print('Error!! No ip prefix list found with name: {}'.format(config['in_filter_ip_prefix']))
+            exit(-1)
+    if prefix_detected:
+        neighbor.update({'address_families': [{'type': 'IPV4_UNICAST', 'enabled': True}]})
+        if out_prefix_id:
+            neighbor['address_families'][0].update({'out_filter_ipprefixlist_id': out_prefix_id})
+        if in_prefix_id:
+            neighbor['address_families'][0].update({'in_filter_ipprefixlist_id': in_prefix_id})
+
+
+def parse_bgp_neighbor(config):
+    if config['type'] == 't0_router':
+        t0_router = config['t0_router_name']
+        if t0_router in t0_facts:
+            neighbor = {'display_name': t0_router,
+                        'neighbor_address': t0_facts[t0_router]['inter_t0_addr'],
+                        'remote_as_num': t0_facts[t0_router]['as_num']}
+            add_filter_options(config, neighbor)
+            addr_2 = t0_facts[t0_router]['inter_t0_addr2']
+            if addr_2 is not None and addr_2 != "null":
+                neighbor2 = {'display_name': t0_router + '_ha',
+                             'neighbor_address': addr_2,
+                             'remote_as_num': t0_facts[t0_router]['as_num']}
+                return [neighbor, neighbor2]
+            else:
+                return [neighbor]
+        else:
+            print('Error!! No T0Router found with name: {}'.format(t0_router))
+            exit(-1)
+    elif config['type'] == 'address':
+        neighbor = config.pop('type')
+        return [neighbor]
+
+
+def check_for_existing_bgp_neighbors(existing_neighbors, new_neighbor):
+    if len(existing_neighbors) == 0:
+        return None
+    for existing_neighbor in existing_neighbors:
+        if existing_neighbor['neighbor_address'] == new_neighbor['neighbor_address']:
+            return existing_neighbor
+    return None
+
+
+def add_bgp_neighbors(neighbors, t0_router_id, t0_router_name):
+    changes_detected = False
+    api_endpoint = '%s/%s/%s' % (ROUTERS_ENDPOINT, t0_router_id, 'routing/bgp/neighbors')
+    existing_neighbors = client.get(api_endpoint).json()['results']
+    for neighbor in neighbors:
+        neighbor_payloads = parse_bgp_neighbor(neighbor)
+        for neighbor_payload in neighbor_payloads:
+            existing_neighbor = check_for_existing_bgp_neighbors(existing_neighbors, neighbor_payload)
+            if existing_neighbor is None:
+                changes_detected = True
+                print('Adding new BGP neighbor for T0 router{}: {}'.format(t0_router_name, neighbor_payload))
+                client.post(api_endpoint, neighbor_payload)
+            else:
+                if any(x != y for x, y in zip(existing_neighbor['address_families'],
+                                              neighbor_payload['address_families'])):
+                    changes_detected = True
+                    print('Updating BGP neighbor for T0 router{}: {}'.format(t0_router_name, neighbor_payload))
+                    api_endpoint += '/%s' % existing_neighbor['id']
+                    client.put(api_endpoint, neighbor_payload)
     return changes_detected
 
 
@@ -1068,11 +1113,21 @@ def add_bgp_configs():
                 changes_detected = add_bgp_neighbors(bgp_config['neighbors'],
                                                      t0_router_id=t0_router_id,
                                                      t0_router_name=bgp_config['t0_router'])
+            if 'redistribution_configs' in bgp_config:
+                changes_detected = add_redistribution_rules(bgp_config['redistribution_configs'],
+                                                            t0_router_id=t0_router_id,
+                                                            t0_router_name=bgp_config['t0_router'])
+        else:
+            print("Detected t0 routers that are not specified in previous sections! skipping BGP setup for this router")
     if changes_detected:
         print('Done adding/updating BGP configs for T0Routers!!\n')
     else:
         print('Detected no change with BGP configs for T0Routers!!\n')
 
+
+##############################
+# Load balancers
+##############################
 
 def load_loadbalancer_monitors():
     api_endpoint = LBR_MONITORS_ENDPOINT
@@ -1386,11 +1441,14 @@ def main():
         # So create directly
         create_ha_switching_profile()
 
-        # # Set the route redistribution
+        # Set the route redistribution
         set_t0_route_redistribution()
 
-        # #print_t0_route_nat_rules()
+        # print_t0_route_nat_rules()
         add_t0_route_nat_rules()
+
+        # Apply BGP configs for t0 routers
+        add_bgp_configs()
 
         create_all_t1_routers()
 

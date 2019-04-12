@@ -80,6 +80,8 @@ nsx_t_gen_params: &nsx-t-gen-params
   compute_manager_2_password_int: ((compute_manager_2_password))
   compute_manager_2_vcenter_ip_int: ((compute_manager_2_vcenter_ip))
 
+  nsx_t_ip_prefix_spec_int: ((nsx_t_ip_prefix_spec))
+  nsx_t_t0_bgp_spec_int: ((nsx_t_t0_bgp_spec))
   nsx_t_t1router_logical_switches_spec_int: ((nsx_t_t1router_logical_switches_spec))
   nsx_t_ha_switching_profile_spec_int: ((nsx_t_ha_switching_profile_spec))
   nsx_t_container_ip_block_spec_int: ((nsx_t_container_ip_block_spec))

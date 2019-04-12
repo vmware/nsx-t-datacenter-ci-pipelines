@@ -182,7 +182,7 @@
         router_type: TIER0
         high_availability_mode: ACTIVE_STANDBY
         state: present
-      with_items: "{{ groups[tier0_routers] }}"
+      with_items: "{{ groups['tier0_routers'] }}"
       register: t0s
 
       ## TODO: this need to be refactored
@@ -205,10 +205,10 @@
         username: "{{hostvars['localhost'].nsx_manager_username}}"
         password: "{{hostvars['localhost'].nsx_manager_password}}"
         validate_certs: False
-        logical_router_name: "{{ item.tier0_router_name }}"
+        logical_router_name: "{{ hostvars[item].tier0_router_name }}"
         next_hops:
         - administrative_distance: '1'
-          ip_address: "{{item.tier0_uplink_next_hop_ip}}"
+          ip_address: "{{ hostvars[item].tier0_uplink_next_hop_ip }}"
         network: 0.0.0.0/0
         state: present
       with_items: "{{ groups['tier0_routers'] }}"

@@ -240,10 +240,10 @@
         password: "{{hostvars['localhost'].nsx_manager_password}}"
         validate_certs: False
         resource_type: UplinkHostSwitchProfile
-        display_name: "{{item.edge_uplink_profile_name}}"
+        display_name: "{{hostvars[item].edge_uplink_profile_name}}"
         mtu: 1600
         teaming: "{{common_teaming_spec_for_edge}}"
-        transport_vlan: "{{item.edge_uplink_profile_vlan}}"
+        transport_vlan: "{{hostvars[item].edge_uplink_profile_vlan}}"
         state: "present"
       with_items:
       - "{{ groups['tenant_edge_cluster_members'] }}"
