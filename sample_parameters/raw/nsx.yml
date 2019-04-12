@@ -161,3 +161,74 @@ esx_os_version: "6.5.0"
 esx_root_password: "ca$hc0w"
 esx_hostname_prefix: "esx-host"
 esx_available_vmnic: "vmnic1" # comma separated physical NICs, applies to both cluster installation or ESXi installation
+
+## BGP related configurations
+nsx_t_ip_prefix_spec: |
+  ip_prefix_lists:
+  - display_name: "shared-t0-prefixes"
+    t0_router: SharedT0Router     # Name as specified in the Default Tier 0 router section above
+    prefixes:
+    - action: "PERMIT"
+      network: 30.0.0.0/24        # PKS management network
+    - action: "PERMIT"
+      network: 192.168.110.0/24   # NSX management network
+    - action: "DENY"
+      network: 0.0.0.0/24
+
+  - display_name: "tenant1-t0-prefixes"
+    t0_router: Tenant1T0Router     # Name as specified in the tenant_t0s section above
+    prefixes:
+    - action: "PERMIT"
+      network: 30.0.128.0/17       # K8S Node network
+      ge: 24
+      le: 24
+    # TODO!! An unknown permit network here
+    - action: "DENY"
+      network: 0.0.0.0/24
+
+  - display_name: "tenant2-t0-prefixes"
+      t0_router: Tenant2T0Router     # Name as specified in the tenant_t0s section above
+      prefixes:
+      # TODO!! Check this is k8s node network for tenant 2
+      - action: "PERMIT"
+        network: 40.0.128.0/17       # K8S Node network
+        ge: 24
+        le: 24
+      # TODO!! An unknown permit network here
+      - action: "DENY"
+        network: 0.0.0.0/24
+
+nsx_t_t0_bgp_spec: |
+  bgp_configs:
+  - display_name: "shared-t0-bgp"
+    t0_router: SharedT0Router
+    neighbors:
+    - type: "t0_router"
+      t0_router_name: Tenant1T0Router
+      out_filter_ip_prefix: shared-t0-prefixes
+    - type: "t0_router"
+      t0_router_name: Tenant2T0Router
+      out_filter_ip_prefix: shared-t0-prefixes  # Refer to the ip prefix created above
+    redistribution_configs:
+    - rule_name: shared-criteria
+      sources: [T0_STATIC, T0_CONNECTED, T1_STATIC]
+
+  - display_name: "tenant1-t0-bgp"
+    t0_router: Tenant1T0Router
+    neighbors:
+    - type: "t0_router"
+      t0_router_name: SharedT0Router
+      out_filter_ip_prefix: tenant1-t0-prefixes  # Refer to the ip prefix created above
+    redistribution_configs:
+    - rule_name: tenant1-criteria
+      sources: [T0_CONNECTED, T1_STATIC, T0_NAT]
+
+  - display_name: "tenant2-t0-bgp"
+    t0_router: Tenant2T0Router
+    neighbors:
+    - type: "t0_router"
+      t0_router_name: SharedT0Router
+      out_filter_ip_prefix: tenant2-t0-prefixes  # Refer to the ip prefix created above
+    redistribution_configs:
+    - rule_name: tenant2-criteria
+      sources: [T0_CONNECTED, T1_STATIC, T0_NAT]
