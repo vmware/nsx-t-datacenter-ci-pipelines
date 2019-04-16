@@ -41,7 +41,7 @@ function create_controller_hosts {
     echo "$controller_host" >> ctrl_vms
   done
 
-  cat >> ctrl_vms <<-EOF
+    cat >> ctrl_vms <<-EOF
 [controllers:vars]
 prefix_length="${nsx_manager_deployment_ip_prefix_length_int}"
 default_gateway="${default_gateway_int}"
