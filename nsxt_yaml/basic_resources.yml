@@ -251,7 +251,7 @@
         username: "{{hostvars['localhost'].nsx_manager_username}}"
         password: "{{hostvars['localhost'].nsx_manager_password}}"
         validate_certs: False
-        display_name: lsp_for_uplink_1
+        display_name: "{{hostvars[item].tier0_router_name}}_lsp_for_uplink_1"
         logical_switch_name: "{{ hostvars[item].vlan_logical_switch_name }}"
         admin_state: UP
         state: present
@@ -265,7 +265,7 @@
         username: "{{hostvars['localhost'].nsx_manager_username}}"
         password: "{{hostvars['localhost'].nsx_manager_password}}"
         validate_certs: False
-        display_name: t0_uplink_1
+        display_name: "{{hostvars[item.1].tier0_router_name}}_t0_uplink_1"
         resource_type: LogicalRouterUpLinkPort
         logical_router_name: "{{ hostvars[item.1].tier0_router_name }}"
         linked_logical_switch_port_id:
@@ -288,7 +288,7 @@
         username: "{{hostvars['localhost'].nsx_manager_username}}"
         password: "{{hostvars['localhost'].nsx_manager_password}}"
         validate_certs: False
-        display_name: lsp_for_uplink_2
+        display_name: "{{hostvars[item].tier0_router_name}}_lsp_for_uplink_2"
         logical_switch_name: "{{ hostvars[item].vlan_logical_switch_name }}"
         admin_state: UP
         state: present
@@ -304,7 +304,7 @@
         username: "{{hostvars['localhost'].nsx_manager_username}}"
         password: "{{hostvars['localhost'].nsx_manager_password}}"
         validate_certs: False
-        display_name: t0_uplink_2
+        display_name: "{{hostvars[item.1].tier0_router_name}}_t0_uplink_2"
         resource_type: LogicalRouterUpLinkPort
         logical_router_name: "{{ hostvars[item.1].tier0_router_name }}"
         linked_logical_switch_port_id:
@@ -358,7 +358,7 @@
         username: "{{hostvars['localhost'].nsx_manager_username}}"
         password: "{{hostvars['localhost'].nsx_manager_password}}"
         validate_certs: False
-        display_name: lsp_for_inter_t0_uplink1
+        display_name: "{{hostvars[item].tier0_router_name}}_lsp_for_inter_t0_uplink1"
         logical_switch_name: "{{ hostvars['localhost'].inter_t0_logical_switch_name }}"
         admin_state: UP
         state: present
@@ -372,7 +372,7 @@
         username: "{{hostvars['localhost'].nsx_manager_username}}"
         password: "{{hostvars['localhost'].nsx_manager_password}}"
         validate_certs: False
-        display_name: inter_t0_uplink_1
+        display_name: "{{hostvars[item.1].tier0_router_name}}_inter_t0_uplink_1"
         resource_type: LogicalRouterUpLinkPort
         logical_router_name: "{{ hostvars[item.1].tier0_router_name }}"
         linked_logical_switch_port_id:
@@ -395,7 +395,7 @@
         username: "{{hostvars['localhost'].nsx_manager_username}}"
         password: "{{hostvars['localhost'].nsx_manager_password}}"
         validate_certs: False
-        display_name: lsp_for_inter_t0_uplink2
+        display_name: "{{hostvars[item].tier0_router_name}}_lsp_for_inter_t0_uplink2"
         logical_switch_name: "{{ hostvars['localhost'].inter_t0_logical_switch_name }}"
         admin_state: UP
         state: present
@@ -411,7 +411,7 @@
         username: "{{hostvars['localhost'].nsx_manager_username}}"
         password: "{{hostvars['localhost'].nsx_manager_password}}"
         validate_certs: False
-        display_name: inter_t0_uplink_2
+        display_name: "{{hostvars[item.1].tier0_router_name}}_inter_t0_uplink_2"
         resource_type: LogicalRouterUpLinkPort
         logical_router_name: "{{ hostvars[item.1].tier0_router_name }}"
         linked_logical_switch_port_id:
