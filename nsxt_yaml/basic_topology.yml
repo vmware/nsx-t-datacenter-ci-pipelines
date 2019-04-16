@@ -105,7 +105,10 @@
           username: "{{hostvars['localhost'].compute_manager_username}}"
           password: "{{hostvars['localhost'].compute_manager_password}}"
         state: present
+      retries: 3
+      delay: 3
       register: compute_manager
+      until: compute_manager is defined
 
     # TODO: change var names
     - name: Deploy compute manager 2
