@@ -18,6 +18,7 @@ ROUTER_PORTS_ENDPOINT        = '%s%s' % (API_VERSION, '/logical-router-ports')
 SWITCHES_ENDPOINT            = '%s%s' % (API_VERSION, '/logical-switches')
 SWITCH_PORTS_ENDPOINT        = '%s%s' % (API_VERSION, '/logical-ports')
 SWITCHING_PROFILE_ENDPOINT   = '%s%s' % (API_VERSION, '/switching-profiles')
+IP_SET_ENDPOINT              = '%s%s' % (API_VERSION, '/ip-sets')
 CONTAINER_IP_BLOCKS_ENDPOINT = '%s%s' % (API_VERSION, '/pools/ip-blocks')
 EXTERNAL_IP_POOL_ENDPOINT    = '%s%s' % (API_VERSION, '/pools/ip-pools')
 TRUST_MGMT_CSRS_ENDPOINT     = '%s%s' % (API_VERSION, '/trust-management/csrs')
@@ -539,6 +540,70 @@ def create_pas_tags():
     return pas_tags
 
 
+##############################
+# IP sets / blocks / pools
+##############################
+
+def load_ip_sets():
+    for display_name, uid in global_id_map:
+        if display_name.startswith('ROUTER'):
+            api_endpoint = IP_SET_ENDPOINT
+            ip_sets = client.get(api_endpoint).json()['results']
+            for ip_set in ip_sets:
+                global_id_map['IP_SET:' + ip_set['display_name']] = ip_set['id']
+
+
+def check_for_existing_ip_set(exisiting_ip_sets, new_ip_set):
+    for exisiting_ip_set in exisiting_ip_sets:
+        if exisiting_ip_sets['display_name'] == new_ip_set['display_name']:
+            if cmp(exisiting_ip_sets['ip_addresses'], new_ip_set['ip_addresses']) == 0:
+                exisiting_ip_set.update({'stat': 'duplicate'})
+                return exisiting_ip_set
+            else:
+                exisiting_ip_set.update({'stat': 'update'})
+                return exisiting_ip_set
+    return None
+
+
+def create_ip_sets():
+    ip_set_specs = os.getenv('nsx_t_ip_set_spec_int', '').strip()
+    if ip_set_specs == '' or ip_set_specs == 'null':
+        print('No yaml payload set for the NSX_T_IP_SET_SPEC!')
+        return
+
+    ip_sets = yaml.load(ip_set_specs)['ip_sets']
+    if ip_sets is None or len(ip_sets) <= 0:
+        print('No ip set entries in the NSX_T_IP_SET_SPEC, nothing to add/update!')
+        return
+
+    changes_detected = False
+    api_endpoint = IP_SET_ENDPOINT
+    existing_ip_sets = client.get(api_endpoint).json()['results']
+    for ip_set in ip_sets:
+        ip_set_payload = {
+            'display_name': ip_set['display_name'],
+            'ip_addresses': ip_set['ip_addresses']
+        }
+        existing_ip_set = check_for_existing_ip_set(existing_ip_sets, ip_set_payload)
+        if not existing_ip_set:
+            changes_detected = True
+            print('Adding new set: {}'.format(ip_set_payload))
+            client.post(api_endpoint, ip_set_payload)
+
+        elif existing_ip_set['stat'] == 'update':
+            changes_detected = True
+            print('Updating IP set with name {}: {}'.format(ip_set_payload['display_name'], ip_set_payload))
+            update_api_endpint = '%s%s%s' % (api_endpoint, '/', existing_ip_set['id'])
+            ip_set_payload.update({'_revision:': existing_ip_set['_revision']})
+            client.put(update_api_endpint, ip_set_payload)
+        else:
+            print('Same IP set already defined with name {}!'.format(existing_ip_set['display_name']))
+    if changes_detected:
+        print('Done adding/updating ip sets!!\n')
+    else:
+        print('Detected no change with ip sets!!\n')
+
+
 def create_container_ip_blocks():
     ip_blocks_defn = os.getenv('nsx_t_container_ip_block_spec_int', '').strip()
     if ip_blocks_defn == '' or ip_blocks_defn == 'null':
@@ -848,12 +913,20 @@ def add_t0_route_nat_rules():
 ##############################
 # IP prefix lists
 ##############################
+def load_ip_prefixes():
+    for display_name, uid in global_id_map:
+        if display_name.startswith('ROUTER'):
+            api_endpoint = '%s/%s/%s' % (ROUTERS_ENDPOINT, uid, 'routing/ip-prefix-lists')
+            ip_prefix_lists = client.get(api_endpoint).json()['results']
+            for prefix in ip_prefix_lists:
+                global_id_map['IP_PREFIX:' + prefix['display_name']] = prefix['id']
+
+
 def check_for_existing_prefix(existing_ip_prefix_lists, new_ip_prefix_list):
     if len(existing_ip_prefix_lists) == 0:
         return None
 
     for existing_ip_prefix in existing_ip_prefix_lists:
-        global_id_map['IP_PREFIX:' + existing_ip_prefix['display_name']] = existing_ip_prefix['id']
         if cmp(existing_ip_prefix['prefixes'], new_ip_prefix_list['prefixes']) == 0:
             existing_ip_prefix.update({'stat': 'duplicate'})
             return existing_ip_prefix
@@ -894,10 +967,6 @@ def add_ip_prefix_lists():
             changes_detected = True
             print('Adding new IP prefix list: {}'.format(payload))
             client.post(api_endpoint, payload)
-
-            for result in client.get(api_endpoint).json()['results']:
-                if result['display_name'] == payload['display_name']:
-                    global_id_map['IP_PREFIX:' + result['display_name']] = result['id']
 
         elif existing_ip_prefix['stat'] == 'update':
             changes_detected = True
@@ -981,6 +1050,7 @@ def add_filter_options(config, neighbor):
     in_prefix_id = None
     prefix_detected = False
 
+    load_ip_prefixes()
     if 'out_filter_ip_prefix' in config:
         global_map_name = 'IP_PREFIX:' + config['out_filter_ip_prefix']
         if global_map_name in global_id_map:
