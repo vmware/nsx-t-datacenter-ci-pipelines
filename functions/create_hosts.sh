@@ -1,45 +1,51 @@
 #!/bin/bash
 
-function create_controller_hosts {
-  echo "[controllers]" > ctrl_vms
-  # outer paren converts string to an array
-  controller_ips_int=($(echo "$controller_ips_int" | sed -e 's/,/ /g'))
-  per_controller_params=("controller_deployment_size_int" "vc_datacenter_for_controller_int" "vc_cluster_for_controller_int" "vc_datastore_for_controller_int" "vc_management_network_for_controller_int")
+function create_manager_host {
+  # Outer parenthesis converts string to an array
+  nsx_manager_ips=($(echo "$nsx_manager_ips_int" | sed -e 's/,/ /g'))
+  manager_ip=${nsx_manager_ips[0]}
+  manager_hostname="${nsx_manager_hostname_prefix_int-1}"
+  # The following need to be placed under [localhost:vars] section
+  cat >> manager_host <<-EOF
 
-  num_controllers=${#controller_ips_int[@]}
-  for ((i=0;i<$num_controllers;++i)); do
-    controller_ip=${controller_ips_int[i]}
+nsx_manager_ip="$manager_ip"
+nsx_manager_username="$nsx_manager_username_int"
+nsx_manager_password="$nsx_manager_password_int"
+nsx_manager_assigned_hostname="$manager_hostname"
+nsx_manager_root_pwd="$nsx_manager_root_pwd_int"
+nsx_manager_cli_pwd="$nsx_manager_cli_pwd_int"
+nsx_manager_deployment_size="$nsx_manager_deployment_size_int"
+EOF
+}
+
+function create_controller_hosts {
+  nsx_manager_ips=($(echo "$nsx_manager_ips_int" | sed -e 's/,/ /g'))
+  num_controllers=${#nsx_manager_ips[@]}
+  if [[ $num_controllers -lt 2 ]]; then
+    echo "No additional controller-manager specified."
+    return
+  fi
+
+#  ip_mask_fields=($(echo "$netmask_int" | sed -e 's/\./ /g'))
+#  prefix_length=0
+#  for ip_mask_field in ${ip_mask_fields[*]}; do
+#    prefix_length=$(( prefix_length + $(echo "obase=2;${ip_mask_field}" | bc | tr -cd '1' | wc -c) ))
+#  done
+
+  echo "[controllers]" > ctrl_vms
+  for ((i=1;i<$num_controllers;++i)); do
+    controller_ip=${nsx_manager_ips[i]}
     count=$((i+1))
-    hostname="${controller_hostname_prefix_int}-${count}.${dns_domain_int}"
-    controller_host="controller-${count} ip=$controller_ip hostname=${hostname} default_gateway=${controller_default_gateway_int} prefix_length=$controller_ip_prefix_length_int"
-    # for param in "${per_controller_params[@]}"; do
-    #   # test if a single value is provided or a list is
-    #   # ${!param} indirect param expansion to get value of var with var name being $param
-    #   param_val=($(echo "${!param}" | sed -e 's/,/ /g'))
-    #   if [[ ${#param_val[@]} -gt 1 && ${#param_val[@]} -eq ${#controller_ips_int[@]} ]]; then
-    #     # ${param::-4} removes the _int postfix from var name
-    #     controller_host="${controller_host} ${param::-4}=${param_val[i]}"
-    #   fi
-    # done
+    hostname="${nsx_manager_hostname_prefix_int}-${count}.${dns_domain_int}"
+    controller_host="controller-${count} ip=${controller_ip} hostname=${hostname}"
     echo "$controller_host" >> ctrl_vms
   done
 
-  if [[ $num_controllers -gt 0 ]]; then
     cat >> ctrl_vms <<-EOF
 [controllers:vars]
-controller_cli_password="$controller_cli_password_int"
-controller_root_password="$controller_root_password_int"
-controller_shared_secret="$controller_shared_secret_int"
+prefix_length="${nsx_manager_deployment_ip_prefix_length_int}"
+default_gateway="${default_gateway_int}"
 EOF
-
-    for param in "${per_controller_params[@]}"; do
-        # param_val=($(echo "${!param}" | sed -e 's/,/ /g'))
-        param_val="${!param}"
-        # if [[ ${#param_val[@]} -eq 1 ]]; then
-        echo "${param::-4}=${param_val}" >> ctrl_vms
-        # fi
-    done
-  fi
 
 }
 
@@ -118,6 +124,7 @@ function create_hosts {
 
 # TODO: set nsx manager fqdn
 export NSX_T_MANAGER_SHORT_HOSTNAME=$(echo "$NSX_T_MANAGER_FQDN" | awk -F '\.' '{print $1}')
+#apt -qq install bc
 
 cat > hosts <<-EOF
 [localhost]
@@ -130,8 +137,13 @@ vcenter_password="$vcenter_password_int"
 vcenter_datacenter="$vcenter_datacenter_int"
 vcenter_cluster="$vcenter_cluster_int"
 vcenter_datastore="$vcenter_datastore_int"
-
 mgmt_portgroup="$mgmt_portgroup_int"
+
+vc_datacenter_for_deployment="$vcenter_datacenter_int"
+vc_cluster_for_deployment="$vcenter_cluster_int"
+vc_datastore_for_deployment="$vcenter_datastore_int"
+vc_management_network_for_deployment="$mgmt_portgroup_int"
+
 dns_server="$dns_server_int"
 dns_domain="$dns_domain_int"
 ntp_servers="$ntp_servers_int"
@@ -139,13 +151,6 @@ default_gateway="$default_gateway_int"
 netmask="$netmask_int"
 nsx_image_webserver="$nsx_image_webserver_int"
 ova_file_name="$ova_file_name_int"
-
-nsx_manager_ip="$nsx_manager_ip_int"
-nsx_manager_username="$nsx_manager_username_int"
-nsx_manager_password="$nsx_manager_password_int"
-nsx_manager_assigned_hostname="$nsx_manager_assigned_hostname_int"
-nsx_manager_root_pwd="$nsx_manager_root_pwd_int"
-nsx_manager_deployment_size="$nsx_manager_deployment_size_int"
 
 compute_manager_username="$compute_manager_username_int"
 compute_manager_password="$compute_manager_password_int"
@@ -172,6 +177,9 @@ EOF
     echo "nsx_manager_role=nsx-manager" >> hosts
   fi
 
+  create_manager_host
+  cat manager_host >> hosts
+
   set_list_var_and_strip_whitespaces esx_available_vmnic_int hosts
   set_list_var_and_strip_whitespaces clusters_to_install_nsx_int hosts
   set_list_var_and_strip_whitespaces per_cluster_vlans_int hosts
@@ -187,11 +195,14 @@ EOF
   create_edge_hosts
   create_controller_hosts
 
-  cat ctrl_vms >> hosts
-  echo "" >> hosts
+  if [[ -f ctrl_vms ]]; then
+    cat ctrl_vms >> hosts
+    echo "" >> hosts
+    rm ctrl_vms
+  fi
   cat edge_vms >> hosts
 
-  rm ctrl_vms edge_vms
+  rm manager_host edge_vms
 
   if [[ $esx_ips_int != ""  &&  $esx_ips_int != "null" ]]; then
     create_esx_hosts
@@ -199,4 +210,5 @@ EOF
     cat esx_hosts >> hosts
     rm esx_hosts
   fi
+
 }

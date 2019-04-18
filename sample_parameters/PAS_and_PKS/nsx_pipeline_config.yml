@@ -2,18 +2,8 @@ enable_ansible_debug: false # set value to true for verbose output from ansible
 
 # format: "http://<jumphost_ip>:40001"
 nsx_image_webserver: "http://192.168.110.11:40001"
-#ova_file_name: "nsx-unified-appliance-2.2.0.0.0.8680778.ova" #Uncomment this if downloaded file manually and placed under /home/concourse
-#ovftool_file_name: "VMware-ovftool-4.2.0-5965791-lin.x86_64.bundle"   #Uncomment this if downloaded file manually and placed under /home/concourse
 
-# vCenter to deploy the NSX manager
-vcenter_ip: 192.168.110.22
-vcenter_username: administrator@corp.local
-vcenter_password: "VMware1!"
-vcenter_datacenter: RegionA01
-vcenter_cluster: RegionA01-MGMT      #management cluster
-vcenter_datastore: iscsi
-
-# NSX manager general network settings
+# NSX general network settings
 mgmt_portgroup: 'ESXi-RegionA01-vDS-COMP'
 dns_server: 192.168.110.10
 dns_domain: corp.local.io
@@ -21,13 +11,22 @@ ntp_servers: time.vmware.com
 default_gateway: 192.168.110.1
 netmask: 255.255.255.0
 
-nsx_manager_ip: 192.168.110.33
+# NSX manager cluster configs
+nsx_manager_ips: 192.168.110.33,192.168.110.34,192.168.110.35 # 3 node cluster is recommended. 1 is minimum, 3 is max
 nsx_manager_username: admin
 nsx_manager_password: Admin!23Admin
-nsx_manager_assigned_hostname: "nsxt-manager-10" # this hostname+dns_domain will be FQDN
-nsx_manager_root_pwd: VMware1!    # Min 8 chars, upper, lower, number, special digit
-nsx_manager_deployment_size: small   # Recommended for real barebones demo, smallest setup
+nsx_manager_hostname_prefix: "nsxt-mgr" # Generated hostname: nsxt-mgr-1.corp.local.io, will be FQDN
+nsx_manager_root_pwd: Admin!23Admin # Min 12 chars, upper, lower, number, special digit
+nsx_manager_cli_pwd: Admin!23Admin
+nsx_manager_deployment_size: small # Recommended for real bare-bones demo, smallest setup
+nsx_manager_deployment_ip_prefix_length: 23
 nsx_manager_ssh_enabled: true
+vcenter_ip: 192.168.110.22
+vcenter_username: administrator@corp.local
+vcenter_password: "VMware1!"
+vcenter_datacenter: RegionA01
+vcenter_cluster: RegionA01-MGMT # management cluster
+vcenter_datastore: iscsi
 resource_reservation_off: true
 
 # Compute manager credentials should be the same as above vCenter's if
@@ -55,20 +54,6 @@ tier0_uplink_port_subnet: 24
 tier0_uplink_next_hop_ip: 192.168.100.1
 tier0_uplink_port_ip_2: 192.168.100.5
 tier0_ha_vip: 192.168.100.3
-
-## Controllers
-controller_ips: 192.168.110.34 #comma separated based on number of required controllers
-controller_default_gateway: 192.168.110.1
-controller_ip_prefix_length: 24
-controller_hostname_prefix: controller # Generated hostname: controller_1.corp.local.io
-controller_cli_password: "VMware1!" # Min 8 chars, upper, lower, num, special char
-controller_root_password: "VMware1!"
-controller_deployment_size: "SMALL"
-vc_datacenter_for_controller: RegionA01
-vc_cluster_for_controller: RegionA01-MGMT
-vc_datastore_for_controller: iscsi
-vc_management_network_for_controller: "ESXi-RegionA01-vDS-COMP"
-controller_shared_secret: "VMware1!VMware1!" # Does not need to be configured in unified appliance
 
 ## Edge nodes
 edge_ips: 192.168.110.37,192.168.110.38    #comma separated based in number of required edges
