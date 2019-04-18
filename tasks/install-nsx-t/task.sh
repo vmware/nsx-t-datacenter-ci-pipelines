@@ -72,6 +72,12 @@ python get_mo_ref_id.py --host $vcenter_ip_int --user $vcenter_username_int --pa
 
 cp hosts.out ${PIPELINE_DIR}/nsxt_yaml/basic_topology.yml ${PIPELINE_DIR}/nsxt_yaml/vars.yml nsxt-ansible/
 cd nsxt-ansible
+cp ${PIPELINE_DIR}/tasks/install-nsx-t/modify_options.py ./
+
+if [[ "$unified_appliance_int" == "true" ]]; then
+    # DNS server needs to be specified for static IPs
+    python modify_options.py
+fi
 
 # Deploy the ovas if its not up
 echo "Installing ovftool"
@@ -79,6 +85,7 @@ install_ovftool
 
 cp ${PIPELINE_DIR}/tasks/install-nsx-t/turn_off_reservation.py ./
 cp ${PIPELINE_DIR}/tasks/config-nsx-t-extras/*.py ./
+
 ansible-playbook $DEBUG -i hosts.out basic_topology.yml
 STATUS=$?
 

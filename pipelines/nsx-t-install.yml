@@ -17,13 +17,19 @@ nsx_t_gen_params: &nsx-t-gen-params
   nsx_image_webserver_int: ((nsx_image_webserver))
   ova_file_name_int: ((ova_file_name))
   ovftool_file_name_int: ((ovftool_file_name))
-  nsx_manager_ip_int: ((nsx_manager_ip))
+
+  unified_appliance_int: ((unified_appliance))
+  nsx_manager_ips_int: ((nsx_manager_ips))
   nsx_manager_username_int: ((nsx_manager_username))
   nsx_manager_password_int: ((nsx_manager_password))
-  nsx_manager_assigned_hostname_int: ((nsx_manager_assigned_hostname))
+  nsx_manager_hostname_prefix_int: ((nsx_manager_hostname_prefix))
   nsx_manager_root_pwd_int: ((nsx_manager_root_pwd))
+  nsx_manager_cli_pwd_int: ((nsx_manager_cli_pwd))
   nsx_manager_deployment_size_int: ((nsx_manager_deployment_size))
+  nsx_manager_deployment_ip_prefix_length_int: ((nsx_manager_deployment_ip_prefix_length))
   nsx_manager_ssh_enabled_int: ((nsx_manager_ssh_enabled))
+  resource_reservation_off_int: ((resource_reservation_off))
+
   compute_manager_username_int: ((compute_manager_username))
   compute_manager_password_int: ((compute_manager_password))
   edge_uplink_profile_vlan_int: ((edge_uplink_profile_vlan))
@@ -33,20 +39,6 @@ nsx_t_gen_params: &nsx-t-gen-params
   vtep_ip_pool_start_int: ((vtep_ip_pool_start))
   vtep_ip_pool_end_int: ((vtep_ip_pool_end))
 
-  resource_reservation_off_int: ((resource_reservation_off))
-  controller_ips_int: ((controller_ips))
-  controller_default_gateway_int: ((controller_default_gateway))
-  controller_ip_prefix_length_int: ((controller_ip_prefix_length))
-  controller_hostname_prefix_int: ((controller_hostname_prefix))
-  controller_cli_password_int: ((controller_cli_password))
-  controller_root_password_int: ((controller_root_password))
-  controller_deployment_size_int: ((controller_deployment_size))
-  vc_datacenter_for_controller_int: ((vc_datacenter_for_controller))
-  vc_cluster_for_controller_int: ((vc_cluster_for_controller))
-  vc_datastore_for_controller_int: ((vc_datastore_for_controller))
-  vc_management_network_for_controller_int: ((vc_management_network_for_controller))
-
-  controller_shared_secret_int: ((controller_shared_secret))
   edge_ips_int: ((edge_ips))
   edge_default_gateway_int: ((edge_default_gateway))
   edge_ip_prefix_length_int: ((edge_ip_prefix_length))
@@ -129,7 +121,7 @@ resources:
   type: git
   source:
     uri: https://github.com/vmware/ansible-for-nsxt.git
-    branch: v1.0.0
+    branch: ((nsxt_ansible_branch))
 
 - name: ovftool
   type: file-url

@@ -16,7 +16,9 @@ if [ "$enable_ansible_debug_int" == "true" ]; then
 fi
 
 # Check if NSX MGR is up or not
-nsx_mgr_up_status=$(curl -s -o /dev/null -I -w "%{http_code}" -k  https://${nsx_manager_ip_int}:443/login.jsp || true)
+nsx_manager_ips=($(echo "$nsx_manager_ips_int" | sed -e 's/,/ /g'))
+manager_ip=${nsx_manager_ips[0]}
+nsx_mgr_up_status=$(curl -s -o /dev/null -I -w "%{http_code}" -k  https://${manager_ip}:443/login.jsp || true)
 
 # Deploy the ovas if its not up
 if [ $nsx_mgr_up_status -ne 200 ]; then
@@ -30,7 +32,7 @@ cp hosts ${PIPELINE_DIR}/nsxt_yaml/basic_resources.yml ${PIPELINE_DIR}/nsxt_yaml
 cd nsxt-ansible
 
 NO_OF_CONTROLLERS=$(curl -k -u "admin:$nsx_manager_password_int" \
-                    https://${nsx_manager_ip_int}/api/v1/cluster/nodes \
+                    https://${manager_ip}/api/v1/cluster/nodes \
                     | jq '.results[].controller_role.type' | wc -l )
 if [ "$NO_OF_CONTROLLERS" -lt 2 ]; then
   echo "NSX Mgr and controller not configured yet, please cleanup incomplete vms and rerun base install before configuring routers!!"

@@ -21,7 +21,7 @@ cd $BIND_MOUNT_DIR
 ova_file_name=$(ls -l *.ova | sed 's/.* nsx/nsx/;s/ova.*/ova/' | tail -n1)
 ovftool_file_name=$(ls -l *.bundle | sed 's/.* VMware-ovftool/VMware-ovftool/;s/bundle.*/bundle/' | tail -n1)
 
-nsxt_version=2.3.0
+nsxt_version=2.4.0
 if [[ $ova_file_name != "" ]]; then
     nsxt_version=$(echo ${ova_file_name##*-} | head -c5)
 elif [[ $NSXT_VERSION != "" ]]; then
@@ -64,6 +64,10 @@ if [[ $version_num -le 2 ]] && [[ $version_sub_num -le 3 ]]; then
     nsxt_ansible_branch=v1.0.0
 fi
 
+if [[ $PIPELINE_BRANCH != "" ]]; then
+    nsx_t_pipeline_branch=$PIPELINE_BRANCH
+fi
+
 pipeline_internal_config="pipeline_config_internal.yml"
 echo "ovftool_file_name: $ovftool_file_name" > $pipeline_internal_config
 echo "ova_file_name: $ova_file_name" >> $pipeline_internal_config
@@ -81,11 +85,11 @@ git clone -b $nsx_t_pipeline_branch --single-branch https://github.com/vmware/ns
 
 concourse_docker_dir=${ROOT_WORK_DIR}/concourse-docker
 pipeline_dir=${ROOT_WORK_DIR}/nsx-t-datacenter-ci-pipelines
-cp ${concourse_docker_dir}/generate-keys.sh $BIND_MOUNT_DIR
+cp ${concourse_docker_dir}/keys/generate $BIND_MOUNT_DIR
 cp ${pipeline_dir}/docker_compose/docker-compose.yml $BIND_MOUNT_DIR
 
 cd $BIND_MOUNT_DIR
-./generate-keys.sh
+./generate
 
 # prepare the yaml for docker compose
 concourse_version=4.2.1
