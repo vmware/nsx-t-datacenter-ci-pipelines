@@ -19,6 +19,7 @@ SWITCHES_ENDPOINT            = '%s%s' % (API_VERSION, '/logical-switches')
 SWITCH_PORTS_ENDPOINT        = '%s%s' % (API_VERSION, '/logical-ports')
 SWITCHING_PROFILE_ENDPOINT   = '%s%s' % (API_VERSION, '/switching-profiles')
 IP_SET_ENDPOINT              = '%s%s' % (API_VERSION, '/ip-sets')
+FIREWALL_SECTION_ENDPOINT    = '%s%s' % (API_VERSION, '/firewall/sections')
 CONTAINER_IP_BLOCKS_ENDPOINT = '%s%s' % (API_VERSION, '/pools/ip-blocks')
 EXTERNAL_IP_POOL_ENDPOINT    = '%s%s' % (API_VERSION, '/pools/ip-pools')
 TRUST_MGMT_CSRS_ENDPOINT     = '%s%s' % (API_VERSION, '/trust-management/csrs')
@@ -37,10 +38,19 @@ global_id_map = {}
 cache = {}
 t0_facts = {}
 
-TIER1 = "TIER1"
-TIER0 = "TIER0"
-IP_BLOCK = 'IP_BLOCK'
-IP_POOL = 'IP_POOL'
+TIER1          = 'TIER1'
+TIER0          = 'TIER0'
+IP_BLOCK       = 'IpBlock'
+IP_POOL        = 'IpPool'
+IP_SET         = 'IPSet'
+IP_PREFIX      = 'IPPrefixList'
+EDGE_CLUSTER   = 'EdgeCluster'
+TZ             = 'TransportZone'
+SP             = 'SpoofGuardSwitchingProfile'
+ROUTER         = 'LogicalRouter'
+ROUTER_PORT    = 'LogicalRouterPort'
+LS             = 'LogicalSwitch'
+LSP            = 'LogicalSwitchPort'
 
 
 def init():
@@ -91,7 +101,8 @@ def load_edge_clusters():
     for result in resp.json()['results']:
         edge_cluster_name = result['display_name']
         edge_cluster_id = result['id']
-        global_id_map['EDGE_CLUSTER:' + edge_cluster_name] = edge_cluster_id
+        key = '%s:%s' % (EDGE_CLUSTER, edge_cluster_name)
+        global_id_map[key] = edge_cluster_id
         if global_id_map.get('DEFAULT_EDGE_CLUSTER_NAME') is None:
             global_id_map['DEFAULT_EDGE_CLUSTER_NAME'] = edge_cluster_name
 
@@ -100,13 +111,13 @@ def get_edge_cluster():
     edge_cluster_name = global_id_map.get('DEFAULT_EDGE_CLUSTER_NAME')
     if edge_cluster_name is None:
         load_edge_clusters()
-
     return global_id_map['DEFAULT_EDGE_CLUSTER_NAME']
 
 
 def get_edge_cluster_id():
     default_edge_cluster_name = get_edge_cluster()
-    return global_id_map['EDGE_CLUSTER:' + default_edge_cluster_name]
+    key = '%s:%s' % (EDGE_CLUSTER, default_edge_cluster_name)
+    return global_id_map[key]
 
 
 def load_transport_zones():
@@ -116,7 +127,8 @@ def load_transport_zones():
     for result in resp.json()['results']:
         transport_zone_name = result['display_name']
         transport_zone_id = result['id']
-        global_id_map['TZ:' + transport_zone_name] = transport_zone_id
+        key = '%s:%s' % (TZ, transport_zone_name)
+        global_id_map[key] = transport_zone_id
 
 
 def get_transport_zone():
@@ -126,11 +138,10 @@ def get_transport_zone():
 
 def get_transport_zone_id(transport_zone):
     default_transport_zone = get_transport_zone()
-
-    transport_zone_id = global_id_map.get('TZ:' + default_transport_zone)
+    key = '%s:%s' % (TZ, default_transport_zone)
+    transport_zone_id = global_id_map.get(key)
     if transport_zone_id is None:
-        return global_id_map['TZ:' + default_transport_zone]
-
+        return global_id_map[key]
     return transport_zone_id
 
 
@@ -154,7 +165,8 @@ def check_switching_profile(switching_profile_name):
 
     switching_profile_id = None
     for result in resp.json()['results']:
-        global_id_map['SP:' + result['display_name']] = result['id']
+        key = '%s:%s' % (SP, result['display_name'])
+        global_id_map[key] = result['id']
         if result['display_name'] == switching_profile_name:
             switching_profile_id = result['id']
 
@@ -162,7 +174,7 @@ def check_switching_profile(switching_profile_name):
 
 
 def build_router_key(router_type, router_name):
-    return 'ROUTER:{}:{}'.format(router_type, router_name)
+    return '{}:{}:{}'.format(ROUTER, router_type, router_name)
 
 
 def load_logical_routers():
@@ -200,7 +212,8 @@ def check_logical_router_port(router_id):
 
     logical_router_port_id = None
     for result in resp.json()['results']:
-        global_id_map['ROUTER_PORT:' + result['display_name']] = result['id']
+        key = '%s:%s' % (ROUTER_PORT, result['display_name'])
+        global_id_map[key] = result['id']
         if result['logical_router_id'] == router_id:
             logical_router_port_id = result['id']
 
@@ -375,7 +388,8 @@ def check_logical_switch(logical_switch):
 
     logical_switch_id = None
     for result in resp.json()['results']:
-        global_id_map['LS:' + result['display_name']] = result['id']
+        key = '%s:%s' % (LS, result['display_name'])
+        global_id_map[key] = result['id']
         if result['display_name'] == logical_switch:
             logical_switch_id = result['id']
 
@@ -396,8 +410,8 @@ def create_logical_switch(logical_switch_name):
 
     logical_switch_id = resp.json()['id']
     print("Created Logical Switch '{}'".format(logical_switch_name))
-
-    global_id_map['LS:' + logical_switch_name] = logical_switch_id
+    key = '%s:%s' % (LS, logical_switch_name)
+    global_id_map[key] = logical_switch_id
     return logical_switch_id
 
 
@@ -414,7 +428,8 @@ def create_logical_switch_port(logical_switch_name, logical_switch_id):
     resp = client.post(api_endpoint, payload)
 
     logical_switch_port_id = resp.json()['id']
-    global_id_map['LSP:' + switch_port_name] = logical_switch_port_id
+    key = '%s:%s' % (LSP, switch_port_name)
+    global_id_map[key] = logical_switch_port_id
 
     return logical_switch_port_id
 
@@ -452,8 +467,8 @@ def associate_logical_switch_port(t1_router_name, logical_switch_name, subnet):
     logical_router_port_id = resp.json()['id']
     print("Created Logical Switch Port from Logical Switch {} with name: {} "
           + "to T1Router: {}".format(logical_switch_name, switch_port_name, t1_router_name))
-
-    global_id_map['LRP:' + name] = logical_router_port_id
+    key = '%s:%s' % (ROUTER_PORT, name)
+    global_id_map[key] = logical_router_port_id
     return logical_router_port_id
 
 
@@ -546,11 +561,12 @@ def create_pas_tags():
 
 def load_ip_sets():
     for display_name, uid in global_id_map:
-        if display_name.startswith('ROUTER'):
+        if display_name.startswith(ROUTER):
             api_endpoint = IP_SET_ENDPOINT
             ip_sets = client.get(api_endpoint).json()['results']
             for ip_set in ip_sets:
-                global_id_map['IP_SET:' + ip_set['display_name']] = ip_set['id']
+                key = '%s:%s' % (IP_SET, ip_set['display_name'])
+                global_id_map[key] = ip_set['id']
 
 
 def check_for_existing_ip_set(exisiting_ip_sets, new_ip_set):
@@ -662,8 +678,8 @@ def create_ha_switching_profile():
             }
             resp = client.post(api_endpoint, payload)
             switching_profile_id = resp.json()['id']
-
-        global_id_map['SP:' + switching_profile_name] = switching_profile_id
+        key = '%s:%s' % (SP, switching_profile_name)
+        global_id_map[key] = switching_profile_id
         switching_profile_tags = {
             'ncp/shared_resource': 'true',
             'ncp/ha': 'true'
@@ -767,7 +783,7 @@ def generate_self_signed_cert():
 
 def set_t0_route_redistribution():
     for key in global_id_map:
-        if key.startswith('ROUTER:TIER0'):
+        if key.startswith('%s:%s' % (ROUTER, TIER0)):
             t0_router_id = global_id_map[key]
             api_endpoint = '%s/%s/%s' % (ROUTERS_ENDPOINT, t0_router_id, 'routing/redistribution')
 
@@ -820,7 +836,7 @@ def add_redistribution_rules(rules, t0_router_id, t0_router_name):
 
 def print_t0_route_nat_rules():
     for key in global_id_map:
-        if key.startswith('ROUTER:TIER0:'):
+        if key.startswith('%s:%s' % (ROUTER, TIER0)):
             t0_router_id = global_id_map[key]
             api_endpoint = '%s/%s/%s' % (ROUTERS_ENDPOINT, t0_router_id, 'nat/rules')
             resp = client.get(api_endpoint).json()
@@ -829,7 +845,7 @@ def print_t0_route_nat_rules():
 
 def reset_t0_route_nat_rules():
     for key in global_id_map:
-        if key.startswith('ROUTER:TIER0:'):
+        if key.startswith('%s:%s' % (ROUTER, TIER0)):
             t0_router_id = global_id_map[key]
             api_endpoint = '%s/%s/%s' % (ROUTERS_ENDPOINT, t0_router_id, 'nat/rules')
             resp = client.get(api_endpoint).json()
@@ -868,7 +884,7 @@ def add_t0_route_nat_rules():
     changes_detected = False
     for nat_rule in nat_rules_defns:
 
-        t0_router_id = global_id_map['ROUTER:TIER0:' + nat_rule['t0_router']]
+        t0_router_id = global_id_map[build_router_key(TIER0, nat_rule['t0_router'])]
         if t0_router_id is None:
             print('Error!! No T0Router found with name: {}'.format(nat_rule['t0_router']))
             exit(-1)
@@ -915,11 +931,12 @@ def add_t0_route_nat_rules():
 ##############################
 def load_ip_prefixes():
     for display_name, uid in global_id_map:
-        if display_name.startswith('ROUTER'):
+        if display_name.startswith(ROUTER):
             api_endpoint = '%s/%s/%s' % (ROUTERS_ENDPOINT, uid, 'routing/ip-prefix-lists')
             ip_prefix_lists = client.get(api_endpoint).json()['results']
             for prefix in ip_prefix_lists:
-                global_id_map['IP_PREFIX:' + prefix['display_name']] = prefix['id']
+                key = '%s:%s' % (IP_PREFIX, prefix['display_name'])
+                global_id_map[key] = prefix['id']
 
 
 def check_for_existing_prefix(existing_ip_prefix_lists, new_ip_prefix_list):
@@ -950,7 +967,7 @@ def add_ip_prefix_lists():
     changes_detected = False
     for prefix_list in ip_prefix_lists:
         t0_router = prefix_list['t0_router']
-        t0_router_id = global_id_map['ROUTER:TIER0:' + t0_router]
+        t0_router_id = global_id_map[build_router_key(TIER0, t0_router)]
         if t0_router_id is None:
             print('Error!! No T0Router found with name: {}'.format(t0_router))
             exit(-1)
@@ -1038,9 +1055,10 @@ def add_bgp_community_list_configs(community_lists, t0_router_id, t0_router_name
             print('Adding new BGP community list for T0 router{}: {}'.format(t0_router_name, payload))
             client.post(api_endpoint, payload)
         else:
-            if existing_community_list['communities'] != payload['communities']:
+            if cmp(existing_community_list['communities'], payload['communities']) != 0:
                 changes_detected = True
                 print('Updating BGP community list for T0 router{}: {}'.format(t0_router_name, payload))
+                payload.update({'_revision': existing_community_list['_revision']})
                 client.put(api_endpoint, payload)
     return changes_detected
 
@@ -1052,7 +1070,7 @@ def add_filter_options(config, neighbor):
 
     load_ip_prefixes()
     if 'out_filter_ip_prefix' in config:
-        global_map_name = 'IP_PREFIX:' + config['out_filter_ip_prefix']
+        global_map_name = '%s:%s' % (IP_PREFIX, config['out_filter_ip_prefix'])
         if global_map_name in global_id_map:
             prefix_detected = True
             out_prefix_id = global_id_map[global_map_name]
@@ -1060,7 +1078,7 @@ def add_filter_options(config, neighbor):
             print('Error!! No ip prefix list found with name: {}'.format(config['out_filter_ip_prefix']))
             exit(-1)
     if 'in_filter_ip_prefix' in config:
-        global_map_name = 'IP_PREFIX:' + config['in_filter_ip_prefix']
+        global_map_name = '%s:%s' % (IP_PREFIX, config['in_filter_ip_prefix'])
         if global_map_name in global_id_map:
             prefix_detected = True
             in_prefix_id = global_id_map[global_map_name]
@@ -1149,7 +1167,7 @@ def add_bgp_configs():
     changes_detected = False
     for bgp_config in bgp_configs:
         if bgp_config['t0_router'] in t0_facts:
-            t0_router_id = global_id_map['ROUTER:TIER0:' + bgp_config['t0_router']]
+            t0_router_id = global_id_map[build_router_key(TIER0, bgp_config['t0_router'])]
             if t0_router_id is None:
                 print('Error!! No T0Router found with name: {}'.format(bgp_config['t0_router']))
                 exit(-1)
@@ -1380,7 +1398,7 @@ def add_loadbalancers():
         return
 
     for lbr in lbrs_defn:
-        t1_router_id = global_id_map['ROUTER:TIER1:' + lbr['t1_router']]
+        t1_router_id = global_id_map[build_router_key(TIER1, lbr['t1_router'])]
         if t1_router_id is None:
             print('Error!! No T1Router found with name: {} referred against LBR: {}'.format(lbr['t1_router'],
                                                                                             lbr['name']))
