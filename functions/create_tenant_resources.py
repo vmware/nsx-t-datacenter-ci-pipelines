@@ -7,9 +7,6 @@ import argparse
 def create_tenant_edge_params():
     dns_domain = os.getenv('dns_domain_int')
     edge_specs = os.getenv('tenant_edge_clusters_int')
-    # default_edge_ips = os.getenv('edge_ips')
-    # default_edge_prefix = os.getenv('edge_transport_node_prefix_int')
-    # default_edge_uplink_profile_vlan = os.getenv('edge_uplink_profile_vlan_int')
     tenant_edge_clusters = json.loads(edge_specs)
 
     with open('tenant_edges', 'w') as edge_output_file:
@@ -47,15 +44,6 @@ def create_tenant_edge_params():
                 edge_output_file.write('%s=%s\n' % (param, edge_cluster[param]))
 
         cluster_member_spec = []
-        # default_edge_count = len(default_edge_ips.split(','))
-        # default_edge_members = "default-edge-cls members='["
-        # for i in range(default_edge_count):
-        #     default_edge_members += "{\"transport_node_name\":\"%s-%s\"}," \
-        #                             % (default_edge_prefix, i + 1)
-        # default_edge_members = default_edge_members[:-1] + "]'"
-        # default_edge_members += " edge_uplink_profile_vlan=%s\n" % default_edge_uplink_profile_vlan
-        # cluster_member_spec.append(default_edge_members)
-
         for idx, edge_cluster in enumerate(tenant_edge_clusters):
             members_line = "edge-cls-%s members='[" % (idx + 1)
             for i in range(len(edge_cluster['edge_ips'].split(','))):

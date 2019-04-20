@@ -106,9 +106,9 @@
           password: "{{hostvars['localhost'].compute_manager_password}}"
         state: present
       retries: 3
-      delay: 3
+      delay: 10
       register: compute_manager
-      until: compute_manager is defined
+      until: compute_manager is not failed
 
     # TODO: change var names
     - name: Deploy compute manager 2
@@ -127,9 +127,9 @@
         state: present
       register: compute_manager_2_compute_cluster
       when:
-      - hostvars['localhost'].compute_manager_2_vcenter_ip is defined
-      - hostvars['localhost'].compute_manager_2_username is defined
-      - hostvars['localhost'].compute_manager_2_password is defined
+        - hostvars['localhost'].compute_manager_2_vcenter_ip is defined
+        - hostvars['localhost'].compute_manager_2_username is defined
+        - hostvars['localhost'].compute_manager_2_password is defined
 
     - name: Install pyvmomi tools dependency
       shell: "cd /tmp; git clone https://github.com/vmware/pyvmomi-community-samples.git; cp -r pyvmomi-community-samples/samples/tools /usr/local/lib/python2.7/dist-packages"

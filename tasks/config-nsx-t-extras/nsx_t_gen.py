@@ -70,11 +70,31 @@ def init():
     client.set_context(nsx_mgr_context)
 
 
+##############################
+# Utility functions
+##############################
+
 def print_global_ip_map():
     print '-----------------------------------------------'
     for key in global_id_map:
         print(" {} : {}".format(key, global_id_map[key]))
     print '-----------------------------------------------'
+
+
+def nested_sort(item):
+    if type(item) is dict:
+        for k, v in item.items():
+            item[k] = nested_sort(v)
+        return item
+    elif type(item) is list:
+        item = sorted(item)
+        item = [nested_sort(v) for v in item]
+        return item
+    return item
+
+
+def deep_eq(v1, v2):
+    return True if nested_sort(v1) == nested_sort(v2) else False
 
 
 def load_ip_blocks():
@@ -560,19 +580,16 @@ def create_pas_tags():
 ##############################
 
 def load_ip_sets():
-    for display_name, uid in global_id_map:
-        if display_name.startswith(ROUTER):
-            api_endpoint = IP_SET_ENDPOINT
-            ip_sets = client.get(api_endpoint).json()['results']
-            for ip_set in ip_sets:
-                key = '%s:%s' % (IP_SET, ip_set['display_name'])
-                global_id_map[key] = ip_set['id']
+    ip_sets = client.get(IP_SET_ENDPOINT).json()['results']
+    for ip_set in ip_sets:
+        key = '%s:%s' % (IP_SET, ip_set['display_name'])
+        global_id_map[key] = ip_set['id']
 
 
 def check_for_existing_ip_set(exisiting_ip_sets, new_ip_set):
     for exisiting_ip_set in exisiting_ip_sets:
-        if exisiting_ip_sets['display_name'] == new_ip_set['display_name']:
-            if cmp(exisiting_ip_sets['ip_addresses'], new_ip_set['ip_addresses']) == 0:
+        if exisiting_ip_set['display_name'] == new_ip_set['display_name']:
+            if deep_eq(exisiting_ip_sets['ip_addresses'], new_ip_set['ip_addresses']):
                 exisiting_ip_set.update({'stat': 'duplicate'})
                 return exisiting_ip_set
             else:
@@ -614,6 +631,8 @@ def create_ip_sets():
             client.put(update_api_endpint, ip_set_payload)
         else:
             print('Same IP set already defined with name {}!'.format(existing_ip_set['display_name']))
+
+    load_ip_sets()
     if changes_detected:
         print('Done adding/updating ip sets!!\n')
     else:
@@ -742,9 +761,8 @@ def generate_self_signed_cert():
 
     tokens = nsx_t_manager_fqdn.split('.')
     if len(tokens) < 3:
-        print('Error!! CSR common name is not a full qualified domain name (provided as nsx mgr FQDN): {}!!'.format(
-            nsx_t_manager_fqdn))
-        exit(-1)
+        raise Exception('Error!! CSR common name is not a full qualified domain name (provided as nsx mgr FQDN): {}!!'
+                        .format(nsx_t_manager_fqdn))
 
     payload = {
         'subject': {
@@ -801,7 +819,13 @@ def set_t0_route_redistribution():
 def check_for_existing_redistribution_rules(existing_rules, new_rule):
     if len(existing_rules) == 0:
         return None
-    if cmp(existing_rules['rules'], new_rule['rules']) == 0:
+    rule_identifiers = ['display_name', 'destination', 'sources']
+    ex_rules_filtered = []
+    for ex_rule in existing_rules:
+        ex_rules_filtered.append(dict((idf, ex_rule[idf])
+                                      for idf in rule_identifiers
+                                      if idf in ex_rule))
+    if deep_eq(ex_rules_filtered, new_rule['rules']):
         return existing_rules
     return None
 
@@ -820,7 +844,7 @@ def add_redistribution_rules(rules, t0_router_id, t0_router_name):
                 'sources': rule['sources']
             }]
         }
-        existing_rule = check_for_existing_redistribution_rules(existing_rules_spec, rule_payload)
+        existing_rule = check_for_existing_redistribution_rules(existing_rules_spec['rules'], rule_payload)
         if existing_rule is None:
             changes_detected = True
             print('Adding new BGP redistribution rule for T0 router{}: {}'.format(t0_router_name, rule_payload))
@@ -886,8 +910,7 @@ def add_t0_route_nat_rules():
 
         t0_router_id = global_id_map[build_router_key(TIER0, nat_rule['t0_router'])]
         if t0_router_id is None:
-            print('Error!! No T0Router found with name: {}'.format(nat_rule['t0_router']))
-            exit(-1)
+            raise Exception('Error!! No T0Router found with name: {}'.format(nat_rule['t0_router']))
 
         api_endpoint = '%s/%s/%s' % (ROUTERS_ENDPOINT, t0_router_id, 'nat/rules')
         existing_nat_rules = client.get(api_endpoint).json()['results']
@@ -930,13 +953,15 @@ def add_t0_route_nat_rules():
 # IP prefix lists
 ##############################
 def load_ip_prefixes():
-    for display_name, uid in global_id_map:
+    ip_prefix_dict = {}
+    for display_name, uid in global_id_map.iteritems():
         if display_name.startswith(ROUTER):
             api_endpoint = '%s/%s/%s' % (ROUTERS_ENDPOINT, uid, 'routing/ip-prefix-lists')
             ip_prefix_lists = client.get(api_endpoint).json()['results']
             for prefix in ip_prefix_lists:
                 key = '%s:%s' % (IP_PREFIX, prefix['display_name'])
-                global_id_map[key] = prefix['id']
+                ip_prefix_dict[key] = prefix['id']
+    global_id_map.update(ip_prefix_dict)
 
 
 def check_for_existing_prefix(existing_ip_prefix_lists, new_ip_prefix_list):
@@ -944,7 +969,7 @@ def check_for_existing_prefix(existing_ip_prefix_lists, new_ip_prefix_list):
         return None
 
     for existing_ip_prefix in existing_ip_prefix_lists:
-        if cmp(existing_ip_prefix['prefixes'], new_ip_prefix_list['prefixes']) == 0:
+        if deep_eq(existing_ip_prefix['prefixes'], new_ip_prefix_list['prefixes']):
             existing_ip_prefix.update({'stat': 'duplicate'})
             return existing_ip_prefix
         elif existing_ip_prefix['display_name'] == new_ip_prefix_list['display_name']:
@@ -969,8 +994,7 @@ def add_ip_prefix_lists():
         t0_router = prefix_list['t0_router']
         t0_router_id = global_id_map[build_router_key(TIER0, t0_router)]
         if t0_router_id is None:
-            print('Error!! No T0Router found with name: {}'.format(t0_router))
-            exit(-1)
+            raise Exception('Error!! No T0Router found with name: {}'.format(t0_router))
 
         api_endpoint = '%s/%s/%s' % (ROUTERS_ENDPOINT, t0_router_id, 'routing/ip-prefix-lists')
         existing_ip_prefix_lists = client.get(api_endpoint).json()['results']
@@ -1024,9 +1048,9 @@ def construct_t0_facts():
 
 
 def check_for_existing_bgp_configs(existing_bgp_config, new_bgp_config):
-    if (existing_bgp_config['display_name'] == new_bgp_config['display_name']
-            and str(existing_bgp_config['as_num']) == str(new_bgp_config['as_num'])):
-        return existing_bgp_config
+    if existing_bgp_config['display_name'] == new_bgp_config['display_name']:
+        if str(existing_bgp_config['as_num']) == str(new_bgp_config['as_num']):
+            return existing_bgp_config
     return None
 
 
@@ -1055,7 +1079,7 @@ def add_bgp_community_list_configs(community_lists, t0_router_id, t0_router_name
             print('Adding new BGP community list for T0 router{}: {}'.format(t0_router_name, payload))
             client.post(api_endpoint, payload)
         else:
-            if cmp(existing_community_list['communities'], payload['communities']) != 0:
+            if deep_eq(existing_community_list['communities'], payload['communities']):
                 changes_detected = True
                 print('Updating BGP community list for T0 router{}: {}'.format(t0_router_name, payload))
                 payload.update({'_revision': existing_community_list['_revision']})
@@ -1075,16 +1099,14 @@ def add_filter_options(config, neighbor):
             prefix_detected = True
             out_prefix_id = global_id_map[global_map_name]
         else:
-            print('Error!! No ip prefix list found with name: {}'.format(config['out_filter_ip_prefix']))
-            exit(-1)
+            raise Exception('Error!! No ip prefix list found with name: {}'.format(config['out_filter_ip_prefix']))
     if 'in_filter_ip_prefix' in config:
         global_map_name = '%s:%s' % (IP_PREFIX, config['in_filter_ip_prefix'])
         if global_map_name in global_id_map:
             prefix_detected = True
             in_prefix_id = global_id_map[global_map_name]
         else:
-            print('Error!! No ip prefix list found with name: {}'.format(config['in_filter_ip_prefix']))
-            exit(-1)
+            raise Exception('Error!! No ip prefix list found with name: {}'.format(config['in_filter_ip_prefix']))
     if prefix_detected:
         neighbor.update({'address_families': [{'type': 'IPV4_UNICAST', 'enabled': True}]})
         if out_prefix_id:
@@ -1111,8 +1133,7 @@ def parse_bgp_neighbor(config):
             else:
                 return [neighbor]
         else:
-            print('Error!! No T0Router found with name: {}'.format(t0_router))
-            exit(-1)
+            raise Exception('Error!! No T0Router found with name: {}'.format(t0_router))
     elif config['type'] == 'address':
         neighbor = config.pop('type')
         return [neighbor]
@@ -1140,15 +1161,15 @@ def add_bgp_neighbors(neighbors, t0_router_id, t0_router_name):
                 print('Adding new BGP neighbor for T0 router{}: {}'.format(t0_router_name, neighbor_payload))
                 client.post(api_endpoint, neighbor_payload)
             else:
-                if ('address_families' in existing_neighbor
-                    and 'address_families' in neighbor_payload
-                    and cmp(existing_neighbor['address_families'],
-                            neighbor_payload['address_families']) != 0):
+                if not deep_eq(existing_neighbor.get('address_families'),
+                               neighbor_payload.get('address_families')):
                     changes_detected = True
                     neighbor_payload.update({'_revision': existing_neighbor['_revision']})
                     print('Updating BGP neighbor for T0 router{}: {}'.format(t0_router_name, neighbor_payload))
                     api_endpoint += '/%s' % existing_neighbor['id']
                     client.put(api_endpoint, neighbor_payload)
+    if not changes_detected:
+        print("No changes detected for BGP neighbor configs!")
     return changes_detected
 
 
@@ -1169,8 +1190,7 @@ def add_bgp_configs():
         if bgp_config['t0_router'] in t0_facts:
             t0_router_id = global_id_map[build_router_key(TIER0, bgp_config['t0_router'])]
             if t0_router_id is None:
-                print('Error!! No T0Router found with name: {}'.format(bgp_config['t0_router']))
-                exit(-1)
+                raise Exception('Error!! No T0Router found with name: {}'.format(bgp_config['t0_router']))
 
             api_endpoint = '%s/%s/%s' % (ROUTERS_ENDPOINT, t0_router_id, 'routing/bgp')
             current_bgp_config = client.get(api_endpoint).json()
@@ -1186,11 +1206,7 @@ def add_bgp_configs():
             existing_bgp_config = check_for_existing_bgp_configs(current_bgp_config, bgp_payload)
             if existing_bgp_config is None:
                 changes_detected = True
-                print('Adding new BGP config for T0 router{}: {}'.format(bgp_config['t0_router'], bgp_payload))
-                client.put(api_endpoint, bgp_payload)
-            else:
-                changes_detected = True
-                print('Updating BGP config for T0 router {}: {}'.format(bgp_config['t0_router'], bgp_payload))
+                print('Updating BGP config for T0 router{}: {}'.format(bgp_config['t0_router'], bgp_payload))
                 client.put(api_endpoint, bgp_payload)
 
             if 'community_lists' in bgp_config:
@@ -1213,6 +1229,136 @@ def add_bgp_configs():
         print('Done adding/updating BGP configs for T0Routers!!\n')
     else:
         print('Detected no change with BGP configs for T0Routers!!\n')
+
+
+##############################
+# Edge firewall rules
+##############################
+
+def check_existing_firewall_sections(existing_sections, new_section):
+    if len(existing_sections) == 0:
+        return None
+    for existing_section in existing_sections:
+        if existing_section['display_name'] == new_section['display_name']:
+            section_update, rule_update = False, False
+            if (
+                    existing_section['section_type'] != new_section['section_type'] or
+                    existing_section['stateful'] != new_section['stateful'] or
+                    not deep_eq(existing_section.get('applied_tos'), new_section.get('applied_tos'))
+            ):
+                section_update = True
+            if 'rules' in new_section:
+                api_endpoint = '%s/%s/%s' % (FIREWALL_SECTION_ENDPOINT, existing_section['id'], 'rules')
+                existing_rules = client.get(api_endpoint).json()['results']
+                rule_identifiers = ['display_name', 'action', 'direction', 'sources', 'destinations']
+                ex_rules_filtered = []
+                for ex_rule in existing_rules:
+                    ex_rules_filtered.append(dict((idf, ex_rule[idf])
+                                                  for idf in rule_identifiers
+                                                  if idf in ex_rule))
+                if not deep_eq(ex_rules_filtered, new_section['rules']):
+                    rule_update = True
+            existing_section.update({'section_update': section_update, 'rule_update': rule_update})
+            return existing_section
+    return None
+
+
+def add_firewall_sections_and_rules():
+
+    def add_id_to_resources(resources):
+        resource_list_with_id = []
+        for resource in resources:
+            key = '%s:%s' % (resource['target_type'], resource['target_display_name'])
+            if key in global_id_map:
+                resource.update({'target_id': global_id_map[key], 'is_valid': True})
+                resource_list_with_id.append(resource)
+            else:
+                raise Exception('No %s of name %s found!' % (resource['target_type'], resource['target_display_name']))
+        return resource_list_with_id
+
+    def construct_rule_payload(spec):
+        rule_payload = {
+            'display_name': spec['display_name'],
+            'action': spec['action'],
+            'direction': spec['direction']
+        }
+        if 'sources' in spec:
+            rule_payload.update({
+                'sources': add_id_to_resources(spec['sources'])
+            })
+        if 'destinations' in spec:
+            rule_payload.update({
+                'destinations': add_id_to_resources(spec['destinations'])
+            })
+        return rule_payload
+
+    firewall_section_specs = os.getenv('nsx_t_firewall_sections_spec_int', '').strip()
+    if firewall_section_specs == '' or firewall_section_specs == 'null':
+        print('No yaml payload set for the NSX_T_FIREWALL_SECTION_SPEC, ignoring firewall sections!')
+        return
+
+    firewall_sections = yaml.load(firewall_section_specs)['firewall_sections']
+    if firewall_sections is None or len(firewall_sections) == 0:
+        print('No firewall section config entries in NSX_T_FIREWALL_SECTION_SPEC, nothing to add/update!')
+        return
+
+    changes_detected = False
+    for firewall_section in firewall_sections:
+        api_endpoint = FIREWALL_SECTION_ENDPOINT
+        existing_sections = client.get(api_endpoint).json()['results']
+        payload = {
+            'display_name': firewall_section['display_name'],
+            'section_type': firewall_section['section_type'],
+            'stateful': firewall_section['stateful']
+        }
+        if 'applied_tos' in firewall_section:
+            resource_list = add_id_to_resources(firewall_section['applied_tos'])
+            payload.update({'applied_tos': resource_list})
+
+        if 'rules' in firewall_section:
+            api_endpoint = '%s%s' % (FIREWALL_SECTION_ENDPOINT, '?action=create_with_rules')
+
+            firewall_rule_specs = os.getenv('nsx_t_edge_firewall_rules_spec_int', '').strip()
+            if firewall_rule_specs == '' or firewall_section_specs == 'null':
+                raise Exception('Rules need to be created in nsx_t_edge_firewall_rules_spec section!')
+
+            firewall_rules = yaml.load(firewall_rule_specs)['edge_firewall_rules']
+            if firewall_rules is None or len(firewall_rules) == 0:
+                raise Exception('Rules need to be created in nsx_t_edge_firewall_rules_spec section!')
+
+            rules_payload = []
+            for firewall_rule_name in firewall_section['rules']:
+                rule_spec = next((rule for rule in firewall_rules
+                                  if rule['display_name'] == firewall_rule_name), None)
+                if rule_spec is None:
+                    raise Exception('No rule with name %s is defined!' % firewall_rule_name)
+                rules_payload.append(construct_rule_payload(rule_spec))
+            payload.update({'rules': rules_payload})
+
+        existing_section = check_existing_firewall_sections(existing_sections, payload)
+        if existing_section is None:
+            changes_detected = True
+            print('Adding new firewall section {}'.format(payload))
+            client.post(api_endpoint, payload)
+        else:
+            if existing_section['section_update']:
+                changes_detected = True
+                print('Updating the firewall section {} itself'.format(existing_section['display_name']))
+                api_endpoint = '%s/%s' % (FIREWALL_SECTION_ENDPOINT, existing_section['id'])
+                payload.update({'_revision': existing_section['_revision']})
+                client.put(api_endpoint, payload)
+            if existing_section['rule_update']:
+                changes_detected = True
+                print('Updating the rules of firewall section {}: {}'
+                      .format(existing_section['display_name'], payload['rules']))
+                api_endpoint = '%s/%s%s' % (FIREWALL_SECTION_ENDPOINT,
+                                            existing_section['id'],
+                                            '?action=update_with_rules')
+                client.post(api_endpoint, payload)
+    if changes_detected:
+        print('Done adding/updating firewall sections and rules!!\n')
+    else:
+        print('Detected no change with firewall sections and rules!!\n')
 
 
 ##############################
@@ -1400,9 +1546,8 @@ def add_loadbalancers():
     for lbr in lbrs_defn:
         t1_router_id = global_id_map[build_router_key(TIER1, lbr['t1_router'])]
         if t1_router_id is None:
-            print('Error!! No T1Router found with name: {} referred against LBR: {}'.format(lbr['t1_router'],
-                                                                                            lbr['name']))
-            exit(-1)
+            raise Exception('Error!! No T1Router found with name: {} referred against LBR: {}'
+                            .format(lbr['t1_router'], lbr['name']))
 
         lbr_api_endpoint = LBR_SERVICES_ENDPOINT
         lbr_service_payload = {
@@ -1538,8 +1683,10 @@ def main():
         add_t0_route_nat_rules()
 
         # Apply BGP configs for t0 routers
+        create_ip_sets()
         add_ip_prefix_lists()
         add_bgp_configs()
+        add_firewall_sections_and_rules()
 
         create_all_t1_routers()
 
