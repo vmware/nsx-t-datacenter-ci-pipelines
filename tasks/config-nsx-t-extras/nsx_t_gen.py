@@ -27,6 +27,7 @@ LBR_SERVICES_ENDPOINT        = '%s%s' % (API_VERSION, '/loadbalancer/services')
 LBR_VIRTUAL_SERVER_ENDPOINT  = '%s%s' % (API_VERSION, '/loadbalancer/virtual-servers')
 LBR_POOLS_ENDPOINT           = '%s%s' % (API_VERSION, '/loadbalancer/pools')
 LBR_MONITORS_ENDPOINT        = '%s%s' % (API_VERSION, '/loadbalancer/monitors')
+VIP_ENDPOINT                 = '%s%s' % (API_VERSION, '/cluster/api-virtual-ip')
 
 LBR_APPLICATION_PROFILE_ENDPOINT = '%s%s' % (API_VERSION, '/loadbalancer/application-profiles')
 LBR_PERSISTENCE_PROFILE_ENDPOINT = '%s%s' % (API_VERSION, '/loadbalancer/persistence-profiles')
@@ -1074,6 +1075,23 @@ def create_all_t1_routers():
         enable_route_advertisement(t1_router_id, advertise_lb_vip=advertise_lb_vip)
 
 
+def set_cluster_vip_address():
+    vip_addr = os.getenv('nsx_manager_virtual_ip_int', '').strip()
+    if vip_addr == '' or vip_addr == 'null':
+        print('No yaml payload set for the NSX_T_LBR_SPEC, ignoring loadbalancer section!')
+        return
+
+    current_vip = client.get(VIP_ENDPOINT).json()['ip_address']
+    if current_vip != vip_addr:
+        clear_vip_endpoint = '%s?%s' % (VIP_ENDPOINT, 'action=clear_virtual_ip')
+        client.post(clear_vip_endpoint, None)
+        print('Setting new nsx manager virtual IP address at %s' % vip_addr)
+        new_vip_endpoint = '%s?%s&%s=%s' % (VIP_ENDPOINT, 'action=set_virtual_ip', 'ip_address', vip_addr)
+        client.post(new_vip_endpoint, None)
+    else:
+        print('Detected no change with nsx manager VIP address!')
+
+
 def get_args():
     parser = argparse.ArgumentParser(
         description='Arguments for NSX resource config')
@@ -1107,6 +1125,8 @@ def main():
         load_loadbalancer_persistence_profiles()
         load_ip_blocks()
         load_ip_pools()
+
+        set_cluster_vip_address()
 
         # No support for switching profile in the ansible script yet
         # So create directly
