@@ -4,7 +4,7 @@ function create_manager_host {
   # Outer parenthesis converts string to an array
   nsx_manager_ips=($(echo "$nsx_manager_ips_int" | sed -e 's/,/ /g'))
   manager_ip=${nsx_manager_ips[0]}
-  manager_hostname="${nsx_manager_hostname_prefix_int-1}"
+  manager_hostname="${nsx_manager_hostname_prefix_int}-1"
   # The following need to be placed under [localhost:vars] section
   cat >> manager_host <<-EOF
 
