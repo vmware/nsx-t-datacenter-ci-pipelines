@@ -215,10 +215,10 @@
         password: "{{hostvars['localhost'].nsx_manager_password}}"
         validate_certs: False
         resource_type: "TransportZone"
-        display_name: "vlan_{{hostvars[item].external_connectivity_vlan}}_tz"
+        display_name: "{{hostvars[item].vlan_logical_switch_name}}_tz"
         description: "Transport Zone for VLAN {{hostvars[item].external_connectivity_vlan}}"
         transport_type: "VLAN"
-        host_switch_name: "{{ hostvars[item].vlan_logical_switch_name }}"
+        host_switch_name: "{{hostvars[item].vlan_logical_switch_name}}_hostswitch"
         state: "present"
       with_items:
       - "{{ groups['tier0_routers'] }}"
@@ -307,11 +307,10 @@
         display_name: "{{ hostvars[item].vlan_logical_switch_name }}"
         replication_mode: SOURCE
         admin_state: UP
-        transport_zone_name: "{{vlan_transport_zone}}"
+        transport_zone_name: "{{hostvars[item].vlan_logical_switch_name}}_tz"
         vlan: "{{ hostvars[item].external_connectivity_vlan }}"
         state: present
       with_items: "{{ groups['tier0_routers'] }}"
-      when: t0s.changed == true
 
     - name: Add Edge VM as transport node
       nsxt_transport_nodes:
@@ -338,7 +337,7 @@
           - host_switch_profiles:
             - name: "{{edge_uplink_prof}}"
               type: UplinkHostSwitchProfile
-            host_switch_name: "{{vlan_host_switch}}"
+            host_switch_name: "{{hostvars[item].vlan_logical_switch_name}}_hostswitch"
             pnics:
             - device_name: fp-eth0
               uplink_name: "{{uplink_1_name}}"
@@ -351,7 +350,7 @@
               uplink_name: "{{uplink_1_name}}"
         transport_zone_endpoints:
         - transport_zone_name: "{{overlay_transport_zone}}"
-        - transport_zone_name: "{{vlan_transport_zone}}"
+        - transport_zone_name: "{{hostvars[item].vlan_logical_switch_name}}_tz"
         - transport_zone_name: "{{hostvars['localhost'].inter_t0_transport_zone_name}}"
         node_deployment_info:
           resource_type: "EdgeNode"

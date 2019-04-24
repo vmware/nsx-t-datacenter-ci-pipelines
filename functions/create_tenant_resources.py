@@ -8,6 +8,8 @@ def create_tenant_edge_params():
     dns_domain = os.getenv('dns_domain_int')
     edge_specs = os.getenv('tenant_edge_clusters_int')
     tenant_edge_clusters = json.loads(edge_specs)
+    tenant_t0_specs = os.getenv('tenant_t0s_int')
+    tenant_t0s = json.loads(tenant_t0_specs)
 
     with open('tenant_edges', 'w') as edge_output_file:
         if len(tenant_edge_clusters) == 0:
@@ -40,6 +42,8 @@ def create_tenant_edge_params():
                                'vc_uplink_network_for_edge']
             for param in params_to_write:
                 edge_output_file.write('%s=%s\n' % (param, edge_cluster[param]))
+            edge_output_file.write('%s=%s\n' % ('vlan_logical_switch_name',
+                                                tenant_t0s[idx]['vlan_logical_switch_name']))
             optional_params = ['edge_uplink_profile_vlan', 'edge_uplink_profile_name']
             for optional_param in optional_params:
                 if optional_param in edge_cluster:
@@ -68,7 +72,7 @@ def create_tenant_t0_params():
     tenant_t0s = json.loads(tenant_t0_specs)
     shared_t0_params = ['tier0_router_name', 'edge_cluster_name', 'tier0_uplink_port_ip',
                         'tier0_uplink_port_subnet', 'tier0_uplink_next_hop_ip',
-                        'vlan_logical_switch_name', 'external_connectivity_vlan'
+                        'vlan_logical_switch_name', 'external_connectivity_vlan',
                         'tier0_uplink_port_ip_2', 'tier0_ha_vip', 'bgp_as_number',
                         'inter_tier0_network_ip', 'inter_tier0_network_ip_2']
 

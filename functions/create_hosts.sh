@@ -77,6 +77,7 @@ function create_edge_hosts {
 edge_cli_password="$edge_cli_password_int"
 edge_root_password="$edge_root_password_int"
 edge_uplink_profile_name="edge-single-uplink-prof"
+vlan_logical_switch_name="$vlan_logical_switch_name_int"
 EOF
 
   for param in "${per_cluster_params[@]}"; do
