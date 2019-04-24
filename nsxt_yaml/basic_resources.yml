@@ -213,33 +213,6 @@
         state: present
       with_items: "{{ groups['tier0_routers'] }}"
 
-    - name: Create VLAN logical switch for inter T0 network
-      nsxt_logical_switches:
-        hostname: "{{hostvars['localhost'].nsx_manager_ip}}"
-        username: "{{hostvars['localhost'].nsx_manager_username}}"
-        password: "{{hostvars['localhost'].nsx_manager_password}}"
-        validate_certs: False
-        display_name: "{{hostvars['localhost'].inter_t0_logical_switch_name}}"
-        admin_state: UP
-        transport_zone_name: "{{hostvars['localhost'].inter_t0_transport_zone_name}}"
-        vlan: "{{hostvars['localhost'].inter_t0_vlan}}"
-        state: present
-      register: inter_t0_ls
-
-    - name: Create VLAN logical switch for T0 routers
-      nsxt_logical_switches:
-        hostname: "{{hostvars['localhost'].nsx_manager_ip}}"
-        username: "{{hostvars['localhost'].nsx_manager_username}}"
-        password: "{{hostvars['localhost'].nsx_manager_password}}"
-        validate_certs: False
-        display_name: "{{ hostvars[item].vlan_logical_switch_name }}"
-        replication_mode: SOURCE
-        admin_state: UP
-        transport_zone_name: "{{vlan_transport_zone}}"
-        vlan: "{{vlan_logical_switch_vlan}}"
-        state: present
-      with_items: "{{ groups['tier0_routers'] }}"
-      when: t0s.changed == true
 
 ###############################################################################
 # Tier 0 uplinks

@@ -30,6 +30,7 @@ LBR_SERVICES_ENDPOINT        = '%s%s' % (API_VERSION, '/loadbalancer/services')
 LBR_VIRTUAL_SERVER_ENDPOINT  = '%s%s' % (API_VERSION, '/loadbalancer/virtual-servers')
 LBR_POOLS_ENDPOINT           = '%s%s' % (API_VERSION, '/loadbalancer/pools')
 LBR_MONITORS_ENDPOINT        = '%s%s' % (API_VERSION, '/loadbalancer/monitors')
+NSGROUP_ENDPOINT             = '%s%s' % (API_VERSION, '/ns-groups')
 
 LBR_APPLICATION_PROFILE_ENDPOINT = '%s%s' % (API_VERSION, '/loadbalancer/application-profiles')
 LBR_PERSISTENCE_PROFILE_ENDPOINT = '%s%s' % (API_VERSION, '/loadbalancer/persistence-profiles')
@@ -1636,6 +1637,19 @@ def create_all_t1_routers():
 
         advertise_lb_vip = True if t1_router.get('advertise_lb_vip') in ['true', True] else False
         enable_route_advertisement(t1_router_id, advertise_lb_vip=advertise_lb_vip)
+
+
+def create_emtpy_ns_group():
+    API_ENDPOINT = NSGROUP_ENDPOINT
+    empty_group_payload = {
+        'display_name': 'bootstrap',
+        "members": []
+    }
+    client.post(API_ENDPOINT, empty_group_payload)
+    ns_groups = client.get(API_ENDPOINT).json()['results']
+    for ns_group in ns_groups:
+        if ns_group['display_name'] == 'bootstrap':
+            return ns_group['id']
 
 
 def get_args():

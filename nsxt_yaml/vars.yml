@@ -11,9 +11,9 @@ transportzones:
   transport_type: "OVERLAY"
   host_switch_name: "{{overlay_host_switch}}" # will create one with this name
 
-- display_name: "{{vlan_transport_zone}}"
-  transport_type: "VLAN"
-  host_switch_name: "{{vlan_host_switch}}"
+#- display_name: "{{vlan_transport_zone}}"
+#  transport_type: "VLAN"
+#  host_switch_name: "{{vlan_host_switch}}"
 
 vtep_ip_pool_name: tep-ip-pool
 
@@ -50,9 +50,6 @@ uplink_profiles:
   transport_vlan: "{{hostvars['localhost'].esxi_uplink_profile_vlan}}"
 
 edge_cluster_name: "edge-cluster-0"
-
-vlan_logical_switch: "uplink-vlan-ls"
-vlan_logical_switch_vlan: 0
 
 single_pnic_list:
 - device_name: "{{hostvars['localhost'].esx_available_vmnic[0]}}"

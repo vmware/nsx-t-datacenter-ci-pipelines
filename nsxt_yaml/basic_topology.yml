@@ -193,7 +193,7 @@
       when: groups['controllers'] is defined
 
     # TODO: does not support tag
-    - name: Create Transport Zones
+    - name: Create Overlay Transport Zones
       nsxt_transport_zones:
         hostname: "{{hostvars['localhost'].nsx_manager_ip}}"
         username: "{{hostvars['localhost'].nsx_manager_username}}"
@@ -208,6 +208,22 @@
       with_items:
       - "{{transportzones}}"
 
+    - name: Create VLAN Transport Zones
+      nsxt_transport_zones:
+        hostname: "{{hostvars['localhost'].nsx_manager_ip}}"
+        username: "{{hostvars['localhost'].nsx_manager_username}}"
+        password: "{{hostvars['localhost'].nsx_manager_password}}"
+        validate_certs: False
+        resource_type: "TransportZone"
+        display_name: "vlan_{{hostvars[item].external_connectivity_vlan}}_tz"
+        description: "Transport Zone for VLAN {{hostvars[item].external_connectivity_vlan}}"
+        transport_type: "VLAN"
+        host_switch_name: "{{ hostvars[item].vlan_logical_switch_name }}"
+        state: "present"
+      with_items:
+      - "{{ groups['tier0_routers'] }}"
+      register: vlan_tzs
+
     - name: Create Transport Zone for the inter T0 network
       nsxt_transport_zones:
         hostname: "{{hostvars['localhost'].nsx_manager_ip}}"
@@ -221,7 +237,7 @@
         host_switch_name: "{{inter_t0_host_switch}}"
         state: "present"
 
-    - name: Create uplink profiles for default topology
+    - name: Create shared uplink profiles
       nsxt_uplink_profiles:
         hostname: "{{hostvars['localhost'].nsx_manager_ip}}"
         username: "{{hostvars['localhost'].nsx_manager_username}}"
@@ -236,7 +252,7 @@
       with_items:
       - "{{uplink_profiles}}"
 
-    - name: Create uplink profiles for tenant edges
+    - name: Create uplink profiles for tenants, if specified
       nsxt_uplink_profiles:
         hostname: "{{hostvars['localhost'].nsx_manager_ip}}"
         username: "{{hostvars['localhost'].nsx_manager_username}}"
@@ -250,6 +266,7 @@
         state: "present"
       with_items:
       - "{{ groups['tenant_edge_cluster_members'] }}"
+      when: hostvars[item].edge_uplink_profile_name is defined
 
     # # TODO: support tags
     - name: Create VTEP IP pool
@@ -268,6 +285,34 @@
         state: present
       register: vtep_pool_object
 
+    - name: Create VLAN logical switch for inter T0 network
+      nsxt_logical_switches:
+        hostname: "{{hostvars['localhost'].nsx_manager_ip}}"
+        username: "{{hostvars['localhost'].nsx_manager_username}}"
+        password: "{{hostvars['localhost'].nsx_manager_password}}"
+        validate_certs: False
+        display_name: "{{hostvars['localhost'].inter_t0_logical_switch_name}}"
+        admin_state: UP
+        transport_zone_name: "{{hostvars['localhost'].inter_t0_transport_zone_name}}"
+        vlan: "{{hostvars['localhost'].inter_t0_vlan}}"
+        state: present
+      register: inter_t0_ls
+
+    - name: Create VLAN logical switch for T0 routers
+      nsxt_logical_switches:
+        hostname: "{{hostvars['localhost'].nsx_manager_ip}}"
+        username: "{{hostvars['localhost'].nsx_manager_username}}"
+        password: "{{hostvars['localhost'].nsx_manager_password}}"
+        validate_certs: False
+        display_name: "{{ hostvars[item].vlan_logical_switch_name }}"
+        replication_mode: SOURCE
+        admin_state: UP
+        transport_zone_name: "{{vlan_transport_zone}}"
+        vlan: "{{ hostvars[item].external_connectivity_vlan }}"
+        state: present
+      with_items: "{{ groups['tier0_routers'] }}"
+      when: t0s.changed == true
+
     - name: Add Edge VM as transport node
       nsxt_transport_nodes:
         hostname: "{{hostvars['localhost'].nsx_manager_ip}}"
@@ -281,7 +326,7 @@
           resource_type: StandardHostSwitchSpec
           host_switches:
           - host_switch_profiles:
-            - name: "{{hostvars[item].edge_uplink_profile_name}}"
+            - name: "{{edge_uplink_prof}}"
               type: UplinkHostSwitchProfile
             host_switch_name: "{{overlay_host_switch}}"
             pnics:
@@ -291,14 +336,14 @@
               resource_type: StaticIpPoolSpec
               ip_pool_name: "{{vtep_ip_pool_name}}"
           - host_switch_profiles:
-            - name: "{{hostvars[item].edge_uplink_profile_name}}"
+            - name: "{{edge_uplink_prof}}"
               type: UplinkHostSwitchProfile
             host_switch_name: "{{vlan_host_switch}}"
             pnics:
             - device_name: fp-eth0
               uplink_name: "{{uplink_1_name}}"
           - host_switch_profiles:
-            - name: "{{hostvars[item].edge_uplink_profile_name}}"
+            - name: "{{edge_uplink_prof}}"
               type: UplinkHostSwitchProfile
             host_switch_name: "{{inter_t0_host_switch}}"
             pnics:

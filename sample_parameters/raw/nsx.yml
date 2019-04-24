@@ -39,6 +39,7 @@ compute_manager_2_username: "null"
 compute_manager_2_password: "null"
 
 esxi_uplink_profile_vlan: 0 # For internal overlay connection used by Esxi hosts, usually trasnport VLAN ID
+edge_uplink_profile_vlan: 0 # For outbound uplink connection used by Edge, usually keep as 0
 
 # Virtual Tunnel Endpoint network ip pool
 vtep_ip_pool_cidr: 192.168.213.0/24
@@ -56,7 +57,6 @@ edge_transport_node_prefix: edge-transp-node
 edge_cli_password: "VMware1!"
 edge_root_password: "VMware1!"
 edge_deployment_size: "large" #Large recommended for PKS deployments
-edge_uplink_profile_vlan: 0 # For outbound uplink connection used by Edge, usually keep as 0
 vc_datacenter_for_edge: RegionA01
 vc_cluster_for_edge: RegionA01-MGMT
 vc_datastore_for_edge: iscsi
@@ -71,6 +71,7 @@ tier0_uplink_port_subnet: 24
 tier0_uplink_next_hop_ip: 192.168.100.1
 tier0_uplink_port_ip_2: 192.168.100.5
 tier0_ha_vip: 192.168.100.3
+external_connectivity_vlan: 0
 vlan_logical_switch_name: shared_vlan_ls
 inter_tier0_network_ip: 50.0.0.1
 inter_tier0_network_ip_2: 50.0.0.2
@@ -89,8 +90,6 @@ tenant_edge_clusters:
   edge_cli_password: "VMware1!"
   edge_root_password: "VMware1!"
   edge_deployment_size: "large"   #Large recommended for PKS deployments
-  edge_uplink_profile_vlan: 10
-  edge_uplink_profile_name: tenant1_uplink_prof
   vc_datacenter_for_edge: RegionA01
   vc_cluster_for_edge: RegionA01-edge-cls2
   vc_datastore_for_edge: edge-datastore
@@ -107,8 +106,6 @@ tenant_edge_clusters:
   edge_cli_password: "VMware1!"
   edge_root_password: "VMware1!"
   edge_deployment_size: "large"   #Large recommended for PKS deployments
-  edge_uplink_profile_vlan: 20
-  edge_uplink_profile_name: tenant2_uplink_prof
   vc_datacenter_for_edge: RegionA01
   vc_cluster_for_edge: RegionA01-edge-cls3
   vc_datastore_for_edge: edge-datastore
@@ -126,6 +123,7 @@ tenant_t0s:
   tier0_uplink_port_ip_2: 192.168.101.5
   tier0_ha_vip: 192.168.101.3
   edge_cluster_name: Edge-Cls-Tenant1 #refer to the edge cluster name set for this T0
+  external_connectivity_vlan: 0
   vlan_logical_switch_name: tenant1_vlan_ls
   inter_tier0_network_ip: 50.0.0.3
   inter_tier0_network_ip_2: 50.0.0.4
@@ -139,6 +137,7 @@ tenant_t0s:
   tier0_uplink_port_ip_2: 192.168.102.5
   tier0_ha_vip: 192.168.102.3
   edge_cluster_name: Edge-Cls-Tenant2 #refer to the edge cluster name set for this T0
+  external_connectivity_vlan: 0
   vlan_logical_switch_name: tenant2_vlan_ls
   inter_tier0_network_ip: 50.0.0.5
   inter_tier0_network_ip_2: 50.0.0.6
