@@ -23,6 +23,7 @@ TRUST_MGMT_CSRS_ENDPOINT     = '%s%s' % (API_VERSION, '/trust-management/csrs')
 TRUST_MGMT_CRLS_ENDPOINT     = '%s%s' % (API_VERSION, '/trust-management/crls')
 TRUST_MGMT_SELF_SIGN_CERT    = '%s%s' % (API_VERSION, '/trust-management/csrs/')
 TRUST_MGMT_UPDATE_CERT       = '%s%s' % (API_VERSION, '/node/services/http?action=apply_certificate')
+CLUSTER_CERT_UPDATE_ENDPOINT = '%s%s' % (API_VERSION, '/cluster/api-certificate?action=set_cluster_certificate')
 LBR_SERVICES_ENDPOINT        = '%s%s' % (API_VERSION, '/loadbalancer/services')
 LBR_VIRTUAL_SERVER_ENDPOINT  = '%s%s' % (API_VERSION, '/loadbalancer/virtual-servers')
 LBR_POOLS_ENDPOINT           = '%s%s' % (API_VERSION, '/loadbalancer/pools')
@@ -686,9 +687,13 @@ def generate_self_signed_cert():
 
     update_api_endpint = '%s%s%s' % (TRUST_MGMT_UPDATE_CERT, '&certificate_id=', self_sign_csr_id)
     update_csr_response = client.post(update_api_endpint, '')
-
     print('NSX Mgr updated to use newly generated CSR!!'
           + '\n    Update response code:{}'.format(update_csr_response.status_code))
+
+    cluster_cert_api_point = '%s%s%s' % (CLUSTER_CERT_UPDATE_ENDPOINT, '&certificate_id=', self_sign_csr_id)
+    cluster_cert_response = client.post(cluster_cert_api_point, '')
+    print('NSX Mgr cluster updated to use newly generated CSR!!'
+          + '\n    Update response code:{}'.format(cluster_cert_response.status_code))
 
 
 def set_t0_route_redistribution():
