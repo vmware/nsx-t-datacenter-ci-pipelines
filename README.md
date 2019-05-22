@@ -27,7 +27,7 @@ Create nsx_pipeline_config.yml based on a sample config file, e.g. https://githu
 docker run --name nsx-t-install -d \
   -v /var/run/docker.sock:/var/run/docker.sock \
   -v /home/concourse:/home/concourse \
-  -e CONCOURSE_URL='<host_ip>:8080' \
+  -e CONCOURSE_URL='http://<host_ip>:8080' \
   -e EXTERNAL_DNS='<dns_server>' \
   -e IMAGE_WEBSERVER_PORT=40001 \
   -e VMWARE_USER='<myvmware_user_email>' \
@@ -38,6 +38,7 @@ Set CONCOURSE_URL to http://<host_ip>:8080 (host_ip is the IP address of the pri
 
 The above command will automatically download the ovftool (e.g. VMware-ovftool-4.3.0-xxxxxxx-lin.x86_64.bundle) and NSX OVA (nsx-unified-appliance-2.4.0.0.0.xxxxxxx.ova) files from myvmware.com. If you have already downloaded the two files manually, place them under /home/concourse, and you can run above command with VMWARE_USER and VMWARE_PASSWORD skipped. By default, the docker image from master/nsxt_2.4.0 branch downloads nsx ova version 2.4.0. If deploying earlier version (e.g. NSX-T 2.3.0), simply add `` -e NSXT_VERSION=2.3.0 `` in the docker run command above, or use the docker image from nsxt_2.3.0 branch.
 
+---
 __If running the pipeline on existing concourse environment and not using the nsx-t-install image, please perform following additional steps:__ in nsx_pipeline_config.yml that was created under /home/concourse, add the following lines at the beginning:
 ```
 nsxt_ansible_branch=master
@@ -50,6 +51,8 @@ nsx_t_pipeline_branch=nsxt_2.3.0
 ```
 if deploying NSX-T 2.3.0 or earlier.
 Also, if ovftool and ova files were downloaded manually, add ``ova_file_name=<ova_file_name>`` and ``ovftool_file_name=<ovftool_file_name>`` in nsx_pipeline_config.yml as well.
+
+---
 
 Browse to the Concourse pipeline: http://<CONCOURSE_URL>/teams/main/pipelines/install-nsx-t/ (example: http://10.85.99.130:8080/teams/main/pipelines/install-nsx-t/) and click on the plus on the upper right corner to trigger a build to install NSX-T. If you are prompted with a username and password, use 'nsx' and 'vmware'.
 
