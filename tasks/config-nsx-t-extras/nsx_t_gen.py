@@ -1,6 +1,7 @@
 import argparse
 import os
 import json
+import requests
 import yaml
 from pprint import pprint
 
@@ -23,7 +24,7 @@ TRUST_MGMT_CSRS_ENDPOINT     = '%s%s' % (API_VERSION, '/trust-management/csrs')
 TRUST_MGMT_CRLS_ENDPOINT     = '%s%s' % (API_VERSION, '/trust-management/crls')
 TRUST_MGMT_SELF_SIGN_CERT    = '%s%s' % (API_VERSION, '/trust-management/csrs/')
 TRUST_MGMT_UPDATE_CERT       = '%s%s' % (API_VERSION, '/node/services/http?action=apply_certificate')
-CLUSTER_CERT_UPDATE_ENDPOINT = '%s%s' % (API_VERSION, '/cluster/api-certificate?action=set_cluster_certificate')
+CLUSTER_UPDATE_CERT          = '%s%s' % (API_VERSION, '/cluster/api-certificate?action=set_cluster_certificate')
 LBR_SERVICES_ENDPOINT        = '%s%s' % (API_VERSION, '/loadbalancer/services')
 LBR_VIRTUAL_SERVER_ENDPOINT  = '%s%s' % (API_VERSION, '/loadbalancer/virtual-servers')
 LBR_POOLS_ENDPOINT           = '%s%s' % (API_VERSION, '/loadbalancer/pools')
@@ -57,6 +58,23 @@ def init():
     global_id_map['DEFAULT_TRANSPORT_ZONE_NAME'] = 'overlay-tz'
 
     client.set_context(nsx_mgr_context)
+
+    try:
+        print('Using manager IP address at %s' % nsx_mgr_ip)
+        client.get(TRANSPORT_ZONES_ENDPOINT)
+    except requests.exceptions.SSLError:
+        vip = os.getenv('nsx_manager_virtual_ip_int', '').strip()
+        if vip == '':
+            print('Manager IP is not accessible and VIP is not set, unable to connect '
+                  'to nsx manager!')
+            raise
+        print('Manager IP is not accessible, using cluster vip at %s!' % vip)
+        cluster_context = {
+            'admin_user': nsx_mgr_user,
+            'url': 'https://' + vip,
+            'admin_passwd': nsx_mgr_pwd
+        }
+        client.set_context(cluster_context)
 
 
 def print_global_ip_map():
@@ -622,49 +640,19 @@ def list_certs():
     print('Done listing CSRs\n')
 
 
-def generate_self_signed_cert():
-    nsx_t_manager_fqdn = '{}-1.{}'.format(
-        os.getenv('nsx_manager_hostname_prefix_int'),
-        os.getenv('dns_domain_int'))
-
-    if nsx_t_manager_fqdn is None or nsx_t_manager_fqdn is '':
-        print('Value not set for the NSX_T_MANAGER_HOST_NAME, cannot create self-signed cert')
-        return
-
-    csr_request_spec = os.getenv('nsx_t_csr_request_spec_int', '').strip()
-    if csr_request_spec == '' or csr_request_spec == 'null':
-        return
-
-    csr_request = yaml.load(csr_request_spec)['csr_request']
-    if csr_request is None:
-        print('No valid yaml payload set for the NSX_T_CSR_REQUEST_SPEC, ignoring CSR self-signed cert section!')
-        return
-
-    api_endpoint = TRUST_MGMT_CSRS_ENDPOINT
-    existing_csrs_response = client.get(api_endpoint).json()
-
-    def does_comman_name_match(attr_list):
-        for attr in attr_list:
-            if attr.get('key') == 'CN' and attr.get('value') == nsx_t_manager_fqdn:
-                return True
-        return False
-
-    for csr_resource in existing_csrs_response.get('results', []):
-        attr_list = csr_resource.get('subject', {}).get('attributes', [])
-        if does_comman_name_match(attr_list):
-            print('CSR with NSX manager FQDN %s already exists' % nsx_t_manager_fqdn)
-            return
-
-    tokens = nsx_t_manager_fqdn.split('.')
+def generate_self_signed_cert(common_name, csr_request):
+    tokens = common_name.split('.')
     if len(tokens) < 3:
-        print('Error!! CSR common name is not a full qualified domain name (provided as nsx mgr FQDN): {}!!'.format(
-            nsx_t_manager_fqdn))
+        print('Error!! CSR common name is not a full qualified domain name '
+              '(provided as nsx mgr FQDN or VIP address): {}!!'.format(common_name))
         exit(-1)
 
+    print('Generating CSR request with common name %s' % common_name)
+    api_endpoint = TRUST_MGMT_CSRS_ENDPOINT
     payload = {
         'subject': {
             'attributes': [
-                {'key': 'CN', 'value': nsx_t_manager_fqdn},
+                {'key': 'CN', 'value': common_name},
                 {'key': 'O', 'value': csr_request['org_name']},
                 {'key': 'OU', 'value': csr_request['org_unit']},
                 {'key': 'C', 'value': csr_request['country']},
@@ -675,25 +663,82 @@ def generate_self_signed_cert():
         'key_size': csr_request['key_size'],
         'algorithm': csr_request['algorithm']
     }
-
     resp = client.post(api_endpoint, payload)
     csr_id = resp.json()['id']
 
     self_sign_cert_api_endpint = TRUST_MGMT_SELF_SIGN_CERT
     self_sign_cert_url = '%s%s%s' % (self_sign_cert_api_endpint, csr_id, '?action=self_sign')
     self_sign_csr_response = client.post(self_sign_cert_url, '').json()
+    print('CSR Request posted with response %s' % self_sign_csr_response)
+    return self_sign_csr_response['id']
 
-    self_sign_csr_id = self_sign_csr_response['id']
 
-    update_api_endpint = '%s%s%s' % (TRUST_MGMT_UPDATE_CERT, '&certificate_id=', self_sign_csr_id)
-    update_csr_response = client.post(update_api_endpint, '')
-    print('NSX Mgr updated to use newly generated CSR!!'
-          + '\n    Update response code:{}'.format(update_csr_response.status_code))
+def configure_self_signed_certs(cluster_cert=False):
 
-    cluster_cert_api_point = '%s%s%s' % (CLUSTER_CERT_UPDATE_ENDPOINT, '&certificate_id=', self_sign_csr_id)
-    cluster_cert_response = client.post(cluster_cert_api_point, '')
-    print('NSX Mgr cluster updated to use newly generated CSR!!'
-          + '\n    Update response code:{}'.format(cluster_cert_response.status_code))
+    def does_comman_name_match(attr_list, common_name):
+        for attr in attr_list:
+            if attr.get('key') == 'CN' and attr.get('value') == common_name:
+                return True
+        return False
+
+    mgr_hostname_prefix = os.getenv('nsx_manager_hostname_prefix_int')
+    if mgr_hostname_prefix == '' or mgr_hostname_prefix == 'null':
+        print('Value not set for the NSX_T_MANAGER_HOST_NAME, cannot create self-signed cert')
+        return
+
+    csr_request_spec = os.getenv('nsx_t_csr_request_spec_int', '').strip()
+    if csr_request_spec == '' or csr_request_spec == 'null':
+        print('No CSR request spec configured, cannot create self-signed cert')
+        return
+    csr_request = yaml.load(csr_request_spec)['csr_request']
+    if csr_request is None:
+        print('No valid yaml payload set for the NSX_T_CSR_REQUEST_SPEC, '
+              'ignoring CSR self-signed cert section!')
+        return
+
+    fqdn = ''
+    if not cluster_cert:
+        fqdn = '{}-1.{}'.format(mgr_hostname_prefix, os.getenv('dns_domain_int'))
+    else:
+        vip_addr = os.getenv('nsx_manager_virtual_ip_int', '').strip()
+        if vip_addr and vip_addr != '':
+            fqdn = os.getenv('nsx_manager_cluster_fqdn_int', '')
+            print('Cluster FQDN is set as %s' % fqdn)
+            if not fqdn or fqdn == '':
+                print('No valid FQDN set for generating cluster cert!')
+                return
+
+    api_endpoint = TRUST_MGMT_CSRS_ENDPOINT
+    existing_csrs_response = client.get(api_endpoint).json()
+
+    for csr_resource in existing_csrs_response.get('results', []):
+        attr_list = csr_resource.get('subject', {}).get('attributes', [])
+        if does_comman_name_match(attr_list, fqdn):
+            print('CSR with NSX manager / cluster FQDN %s already exists, skip creation!' % fqdn)
+            return
+
+    signed_cert_id = generate_self_signed_cert(fqdn, csr_request)
+
+    if cluster_cert:
+        cluster_cert_api_point = '%s%s%s' % (CLUSTER_UPDATE_CERT, '&certificate_id=', signed_cert_id)
+        cluster_cert_response = client.post(cluster_cert_api_point, '')
+        print('NSX Mgr cluster updated to use newly generated CSR!!'
+              + '\n    Update response code:{}'.format(cluster_cert_response.status_code))
+        
+        nsx_mgr_user = os.getenv('nsx_manager_username_int', 'admin')
+        nsx_mgr_pwd = os.getenv('nsx_manager_password_int')
+        cluster_context = {
+            'admin_user': nsx_mgr_user,
+            'url': 'https://' + vip_addr,
+            'admin_passwd': nsx_mgr_pwd
+        }
+        client.set_context(cluster_context)
+
+    else:
+        update_api_endpint = '%s%s%s' % (TRUST_MGMT_UPDATE_CERT, '&certificate_id=', signed_cert_id)
+        update_csr_response = client.post(update_api_endpint, '')
+        print('NSX Mgr updated to use newly generated CSR!!'
+              + '\n    Update response code:{}'.format(update_csr_response.status_code))
 
 
 def set_t0_route_redistribution():
@@ -1082,7 +1127,7 @@ def create_all_t1_routers():
 
 def set_cluster_vip_address():
     vip_addr = os.getenv('nsx_manager_virtual_ip_int', '').strip()
-    if vip_addr == '' or vip_addr == 'null':
+    if not vip_addr or vip_addr == '':
         print('No yaml payload set for the NSX_T_LBR_SPEC, ignoring loadbalancer section!')
         return
 
@@ -1092,9 +1137,12 @@ def set_cluster_vip_address():
         client.post(clear_vip_endpoint, None)
         print('Setting new nsx manager virtual IP address at %s' % vip_addr)
         new_vip_endpoint = '%s?%s&%s=%s' % (VIP_ENDPOINT, 'action=set_virtual_ip', 'ip_address', vip_addr)
-        client.post(new_vip_endpoint, None)
+        rsp = client.post(new_vip_endpoint, None)
+        print('Setting VIP at %s returned with response code %s', vip_addr, rsp)
     else:
         print('Detected no change with nsx manager VIP address!')
+    # This function will check if there's already CSR with vip fqdn
+    configure_self_signed_certs(cluster_cert=True)
 
 
 def get_args():
@@ -1131,8 +1179,6 @@ def main():
         load_ip_blocks()
         load_ip_pools()
 
-        set_cluster_vip_address()
-
         # No support for switching profile in the ansible script yet
         # So create directly
         create_ha_switching_profile()
@@ -1151,10 +1197,12 @@ def main():
         # Add Loadbalancers, update if already existing
         add_loadbalancers()
 
+        set_cluster_vip_address()
+
     if args.generate_cert.lower() == 'true':
         # Push this to the last step as the login gets kicked off
         # Generate self-signed cert
-        generate_self_signed_cert()
+        configure_self_signed_certs()
 
 
 if __name__ == '__main__':

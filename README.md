@@ -22,7 +22,19 @@ wget https://github.com/vmware/nsx-t-datacenter-ci-pipelines/raw/master/docker_i
 docker load -i nsx-t-install.tar
 mkdir -p /home/concourse
 ```
-Create nsx_pipeline_config.yml based on a sample config file, e.g. https://github.com/vmware/nsx-t-datacenter-ci-pipelines/blob/master/sample_parameters/PAS_only/nsx_pipeline_config.yml for PAS environment, and place it under /home/concourse.
+Create nsx_pipeline_config.yml based on a sample config file, e.g. https://github.com/vmware/nsx-t-datacenter-ci-pipelines/blob/master/sample_parameters/PAS_only/nsx_pipeline_config.yml for PAS environment, and place it under /home/concourse. </br>
+__NOTE:__ For some parameters in the config yaml, e.g. 'nsx_manager_virtual_ip' and 'nsx_manager_cluster_fqdn', if you wish to leave those parameters unconfigured, simply leave the parameter stub empty:
+```
+...
+nsx_manager_username: admin
+nsx_manager_virtual_ip:     <-- Leave empty
+nsx_manager_cluster_fqdn:   <-- Leave empty
+...
+nsx_t_lbr_spec:             <-- Leave empty
+...
+```
+Do not delete those lines as the pipeline needs to pick up those params even if they are not set.
+
 ```
 docker run --name nsx-t-install -d \
   -v /var/run/docker.sock:/var/run/docker.sock \
