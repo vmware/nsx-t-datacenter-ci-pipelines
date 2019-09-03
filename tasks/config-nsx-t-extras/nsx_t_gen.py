@@ -701,10 +701,10 @@ def configure_self_signed_certs(cluster_cert=False):
         fqdn = '{}-1.{}'.format(mgr_hostname_prefix, os.getenv('dns_domain_int'))
     else:
         vip_addr = os.getenv('nsx_manager_virtual_ip_int', '').strip()
-        if vip_addr and vip_addr != '':
+        if vip_addr and vip_addr != '' and vip_addr != 'null':
             fqdn = os.getenv('nsx_manager_cluster_fqdn_int', '')
             print('Cluster FQDN is set as %s' % fqdn)
-            if not fqdn or fqdn == '':
+            if not fqdn or fqdn == '' or fqdn == 'null':
                 print('No valid FQDN set for generating cluster cert!')
                 return
 
@@ -1127,7 +1127,7 @@ def create_all_t1_routers():
 
 def set_cluster_vip_address():
     vip_addr = os.getenv('nsx_manager_virtual_ip_int', '').strip()
-    if not vip_addr or vip_addr == '':
+    if not vip_addr or vip_addr == '' or vip_addr == 'null':
         print('No yaml payload set for the NSX_T_LBR_SPEC, ignoring loadbalancer section!')
         return
 
