@@ -4,7 +4,9 @@ platform: linux
 
 image_resource:
   type: docker-image
-  source: {repository: dyanngg/nsx-t-gen-worker}
+  source:
+    repository: dyanngg/nsx-t-gen-worker
+    tag: proxyenabled
 
 params:
   NSX_T_INSTALLER:

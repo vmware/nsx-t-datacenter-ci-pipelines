@@ -184,11 +184,6 @@
       when: groups['controllers'] is defined
       register: controller_response
 
-    - name: Install ping
-      apt:
-        name: iputils-ping
-        state: present
-
     - name: Wait 120 seconds for controllers to become reachable
       shell: I=0; while ! ping -c 1 -W 2 {{hostvars[item].ip}}; do I=$(( I + 1 )); [ $I -gt 60 ] && exit 1; done; exit 0
       with_items: "{{groups['controllers']}}"
