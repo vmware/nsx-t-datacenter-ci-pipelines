@@ -172,7 +172,7 @@ unified_appliance="$unified_appliance_int"
 EOF
 
   if [[ $unified_appliance_int == "true" ]]; then
-    echo "nsx_manager_role=nsx-manager nsx-controller" >> hosts
+    echo "nsx_manager_role=NSX Manager" >> hosts
   else
     echo "nsx_manager_role=nsx-manager" >> hosts
   fi
