@@ -136,7 +136,7 @@ jobs:
 
 - name: install-nsx-t
   plan:
-  - aggregate:
+  - in_parallel:
     - get: nsx-t-gen-pipeline
     - get: nsxt-ansible
     - get: ovftool
@@ -147,7 +147,7 @@ jobs:
 
 - name: add-nsx-t-routers
   plan:
-  - aggregate:
+  - in_parallel:
     - get: nsx-t-gen-pipeline
     - get: nsxt-ansible
       params: {globs: []}
@@ -160,7 +160,7 @@ jobs:
 
 - name: config-nsx-t-extras
   plan:
-  - aggregate:
+  - in_parallel:
     - get: nsx-t-gen-pipeline
     - get: nsxt-ansible
       params: {globs: []}
@@ -173,7 +173,7 @@ jobs:
 
 - name: standalone-install-nsx-t
   plan:
-  - aggregate:
+  - in_parallel:
     - get: nsx-t-gen-pipeline
     - get: nsxt-ansible
     - get: ovftool
@@ -184,7 +184,7 @@ jobs:
 
 - name: standalone-add-nsx-t-routers
   plan:
-  - aggregate:
+  - in_parallel:
     - get: nsx-t-gen-pipeline
     - get: nsxt-ansible
       params: {globs: []}
@@ -195,7 +195,7 @@ jobs:
 
 - name: standalone-config-nsx-t-extras
   plan:
-  - aggregate:
+  - in_parallel:
     - get: nsx-t-gen-pipeline
     - get: nsxt-ansible
       params: {globs: []}
