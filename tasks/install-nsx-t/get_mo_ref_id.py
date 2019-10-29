@@ -20,9 +20,7 @@ DATASTORE = 'datastore'
 HOST_ID_FIELDS = [
     'vc_datacenter_for_edge', 'vc_cluster_for_edge',
     'vc_datastore_for_edge', 'vc_uplink_network_for_edge',
-    'vc_overlay_network_for_edge', 'vc_management_network_for_edge',
-    'vc_datacenter_for_deployment', 'vc_cluster_for_deployment',
-    'vc_datastore_for_deployment', 'vc_management_network_for_deployment'
+    'vc_overlay_network_for_edge', 'vc_management_network_for_edge'
 ]
 
 class NoMoRefIdFoundError(Exception):

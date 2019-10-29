@@ -1,0 +1,94 @@
+---
+- hosts: 127.0.0.1
+  connection: local
+  become: yes
+  vars_files:
+    - vars.yml
+  tasks:
+###############################################################################
+# Tier 0 Gateway
+###############################################################################
+    - name: Uplink segment to external network
+      nsxt_segment:
+        hostname: "{{hostvars['localhost'].nsx_manager_ip}}"
+        username: "{{hostvars['localhost'].nsx_manager_username}}"
+        password: "{{hostvars['localhost'].nsx_manager_password}}"
+        validate_certs: False
+        display_name: "{{vlan_logical_switch}}"
+        id: "{{vlan_logical_switch}}"
+        transport_zone_display_name: "{{vlan_transport_zone}}"
+        vlan_ids:
+        - "{{vlan_logical_switch_vlan}}"
+        state: present
+
+    - name: NSX-T Tier0 Gateway
+      nsxt_tier0:
+        hostname: "{{hostvars['localhost'].nsx_manager_ip}}"
+        username: "{{hostvars['localhost'].nsx_manager_username}}"
+        password: "{{hostvars['localhost'].nsx_manager_password}}"
+        validate_certs: False
+        id: "{{hostvars['localhost'].tier0_router_name}}"
+        display_name: "{{hostvars['localhost'].tier0_router_name}}"
+        ha_mode: ACTIVE_STANDBY
+        static_routes:
+        - state: present
+          id: "static-route"
+          next_hops:
+          - admin_distance: '1'
+            ip_address: "{{hostvars['localhost'].tier0_uplink_next_hop_ip}}"
+          network: 0.0.0.0/0
+        locale_services:
+        - state: present
+          id: "t0-gateway-local-services"
+          route_redistribution_types: []
+          edge_cluster_info:
+            edge_cluster_display_name: "{{edge_cluster_name}}"
+          interfaces:
+          - id: t0-gateway-uplink1
+            display_name: t0-gateway-uplink1
+            state: present
+            subnets:
+            - ip_addresses:
+              - "{{hostvars['localhost'].tier0_uplink_port_ip}}"
+              prefix_len: "{{hostvars['localhost'].tier0_uplink_port_subnet}}"
+            segment_id: "{{vlan_logical_switch}}"
+            edge_node_info:
+              edge_cluster_display_name: "{{edge_cluster_name}}"
+              edge_node_display_name: "{{hostvars[groups['edge_nodes'][0]].transport_node_name}}"
+            do_wait_till_create: true
+          - id: t0-gateway-uplink2
+            display_name: t0-gateway-uplink2
+            state: present
+            subnets:
+            - ip_addresses:
+              - "{{hostvars['localhost'].tier0_uplink_port_ip_2}}"
+              prefix_len: "{{hostvars['localhost'].tier0_uplink_port_subnet}}"
+            segment_id: "{{vlan_logical_switch}}"
+            edge_node_info:
+              edge_cluster_display_name: "{{edge_cluster_name}}"
+              edge_node_display_name: "{{hostvars[groups['edge_nodes'][1]].transport_node_name}}"
+            do_wait_till_create: true
+        state: present
+
+    - name: Configure HA vip on T0
+      nsxt_tier0:
+        hostname: "{{hostvars['localhost'].nsx_manager_ip}}"
+        username: "{{hostvars['localhost'].nsx_manager_username}}"
+        password: "{{hostvars['localhost'].nsx_manager_password}}"
+        validate_certs: False
+        id: "{{hostvars['localhost'].tier0_router_name}}"
+        display_name: "{{hostvars['localhost'].tier0_router_name}}"
+        ha_mode: ACTIVE_STANDBY
+        locale_services:
+        - state: present
+          id: "t0-gateway-local-services"
+          ha_vip_configs:
+          - external_interface_info:
+            - id: t0-gateway-uplink1
+            - id: t0-gateway-uplink2
+            vip_subnets:
+            - ip_addresses:
+              - "{{hostvars['localhost'].tier0_ha_vip}}"
+              prefix_len: "{{hostvars['localhost'].tier0_uplink_port_subnet}}"
+        state: present
+      register: t0

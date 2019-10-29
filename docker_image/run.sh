@@ -53,8 +53,8 @@ if [[ $ova_file_name == "" ]] || [[ $ovftool_file_name == "" ]]; then
 fi
 
 unified_appliance=true
-nsx_t_pipeline_branch=nsxt_2.4.0
-nsxt_ansible_branch=master
+nsx_t_pipeline_branch=wcp
+nsxt_ansible_branch=dev
 
 version_num=$(echo $nsxt_version | cut -d'.' -f1)
 version_sub_num=$(echo $nsxt_version | cut -d'.' -f2)
@@ -66,6 +66,9 @@ fi
 
 if [[ $PIPELINE_BRANCH != "" ]]; then
     nsx_t_pipeline_branch=$PIPELINE_BRANCH
+fi
+if [[ $ANSIBLE_BRANCH != "" ]]; then
+    nsxt_ansible_branch=$ANSIBLE_BRANCH
 fi
 
 pipeline_internal_config="pipeline_config_internal.yml"

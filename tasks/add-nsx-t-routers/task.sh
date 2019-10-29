@@ -29,6 +29,8 @@ fi
 create_hosts
 
 cp hosts ${PIPELINE_DIR}/nsxt_yaml/basic_resources.yml ${PIPELINE_DIR}/nsxt_yaml/vars.yml nsxt-ansible/
+cp ${PIPELINE_DIR}/nsxt_yaml/policy_resources.yml ${PIPELINE_DIR}/nsxt_yaml/vars.yml nsxt-ansible/policy-ansible-for-nsxt/
+cp hosts nsxt-ansible/policy-ansible-for-nsxt/hosts_file
 cd nsxt-ansible
 
 NO_OF_CONTROLLERS=$(curl -k -u "admin:$nsx_manager_password_int" \
@@ -43,7 +45,27 @@ fi
 # when obtaining thumbprints
 echo "[defaults]" > ansible.cfg
 echo "host_key_checking = false" >> ansible.cfg
+
+apt-get update
+yes | apt-get install python3-pip
+pip3 install ansible
 ansible-playbook $DEBUG -i hosts basic_resources.yml
+STATUS=$?
+
+if [[ $STATUS != 0 ]]; then
+	echo "Deployment of manager resources failed!!"
+	echo "Check error logs"
+	echo ""
+	exit $STATUS
+else
+	echo "Deployment of manager resources successful!!"
+	echo ""
+fi
+
+# Policy ansible modules needs to be run in another directory with python3
+cd policy-ansible-for-nsxt
+sed -i '/\[localhost\:vars\]/a ansible_python_interpreter=/usr/bin/python3' hosts_file
+python3 $(which ansible-playbook) $DEBUG -i hosts_file policy_resources.yml
 STATUS=$?
 
 exit $STATUS

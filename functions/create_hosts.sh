@@ -204,11 +204,4 @@ EOF
 
   rm manager_host edge_vms
 
-  if [[ $esx_ips_int != ""  &&  $esx_ips_int != "null" ]]; then
-    create_esx_hosts
-    echo "" >> hosts
-    cat esx_hosts >> hosts
-    rm esx_hosts
-  fi
-
 }

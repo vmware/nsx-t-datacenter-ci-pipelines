@@ -20,11 +20,9 @@ nsx_t_gen_params: &nsx-t-gen-params
 
   unified_appliance_int: ((unified_appliance))
   nsx_manager_ips_int: ((nsx_manager_ips))
-  nsx_manager_virtual_ip_int: ((nsx_manager_virtual_ip))
   nsx_manager_username_int: ((nsx_manager_username))
   nsx_manager_password_int: ((nsx_manager_password))
   nsx_manager_hostname_prefix_int: ((nsx_manager_hostname_prefix))
-  nsx_manager_cluster_fqdn_int: ((nsx_manager_cluster_fqdn))
   nsx_manager_root_pwd_int: ((nsx_manager_root_pwd))
   nsx_manager_cli_pwd_int: ((nsx_manager_cli_pwd))
   nsx_manager_deployment_size_int: ((nsx_manager_deployment_size))
@@ -55,12 +53,9 @@ nsx_t_gen_params: &nsx-t-gen-params
   vc_uplink_network_for_edge_int: ((vc_uplink_network_for_edge))
   vc_overlay_network_for_edge_int: ((vc_overlay_network_for_edge))
   vc_management_network_for_edge_int: ((vc_management_network_for_edge))
+
   clusters_to_install_nsx_int: ((clusters_to_install_nsx))
   per_cluster_vlans_int: ((per_cluster_vlans))
-  esx_ips_int: ((esx_ips))
-  esx_os_version_int: ((esx_os_version))
-  esx_root_password_int: ((esx_root_password))
-  esx_hostname_prefix_int: ((esx_hostname_prefix))
   esx_available_vmnic_int: ((esx_available_vmnic))
 
   tier0_router_name_int: ((tier0_router_name))
@@ -70,17 +65,7 @@ nsx_t_gen_params: &nsx-t-gen-params
   tier0_uplink_port_ip_2_int: ((tier0_uplink_port_ip_2))
   tier0_ha_vip_int: ((tier0_ha_vip))
 
-  compute_manager_2_username_int: ((compute_manager_2_username))
-  compute_manager_2_password_int: ((compute_manager_2_password))
-  compute_manager_2_vcenter_ip_int: ((compute_manager_2_vcenter_ip))
-
-  nsx_t_t1router_logical_switches_spec_int: ((nsx_t_t1router_logical_switches_spec))
-  nsx_t_ha_switching_profile_spec_int: ((nsx_t_ha_switching_profile_spec))
-  nsx_t_container_ip_block_spec_int: ((nsx_t_container_ip_block_spec))
-  nsx_t_external_ip_pool_spec_int: ((nsx_t_external_ip_pool_spec))
-  nsx_t_nat_rules_spec_int: ((nsx_t_nat_rules_spec))
   nsx_t_csr_request_spec_int: ((nsx_t_csr_request_spec))
-  nsx_t_lbr_spec_int: ((nsx_t_lbr_spec))
 
 groups:
 
@@ -88,7 +73,6 @@ groups:
   jobs:
   - install-nsx-t
   - add-nsx-t-routers
-  - config-nsx-t-extras
 
 - name: install-nsx-t
   jobs:
@@ -98,17 +82,12 @@ groups:
   jobs:
   - standalone-add-nsx-t-routers
 
-- name: config-nsx-t-extras
-  jobs:
-  - standalone-config-nsx-t-extras
-
 resource_types:
 - name: file-url
   type: docker-image
   source:
     repository: pivotalservices/concourse-curl-resource
     tag: latest
-
 
 resources:
 - name: nsx-t-gen-pipeline
@@ -158,19 +137,6 @@ jobs:
     file: nsx-t-gen-pipeline/tasks/add-nsx-t-routers/task.yml
     params: *nsx-t-gen-params
 
-- name: config-nsx-t-extras
-  plan:
-  - aggregate:
-    - get: nsx-t-gen-pipeline
-    - get: nsxt-ansible
-      params: {globs: []}
-      passed: [add-nsx-t-routers]
-      trigger: true
-
-  - task: config-nsx-t-extras
-    file: nsx-t-gen-pipeline/tasks/config-nsx-t-extras/task.yml
-    params: *nsx-t-gen-params
-
 - name: standalone-install-nsx-t
   plan:
   - aggregate:
@@ -191,15 +157,4 @@ jobs:
 
   - task: add-nsx-t-routers
     file: nsx-t-gen-pipeline/tasks/add-nsx-t-routers/task.yml
-    params: *nsx-t-gen-params
-
-- name: standalone-config-nsx-t-extras
-  plan:
-  - aggregate:
-    - get: nsx-t-gen-pipeline
-    - get: nsxt-ansible
-      params: {globs: []}
-
-  - task: config-nsx-t-extras
-    file: nsx-t-gen-pipeline/tasks/config-nsx-t-extras/task.yml
     params: *nsx-t-gen-params
