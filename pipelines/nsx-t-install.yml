@@ -20,6 +20,7 @@ nsx_t_gen_params: &nsx-t-gen-params
 
   unified_appliance_int: ((unified_appliance))
   nsx_manager_ips_int: ((nsx_manager_ips))
+  nsx_manager_virtual_ip_int: ((nsx_manager_virtual_ip))
   nsx_manager_username_int: ((nsx_manager_username))
   nsx_manager_password_int: ((nsx_manager_password))
   nsx_manager_hostname_prefix_int: ((nsx_manager_hostname_prefix))

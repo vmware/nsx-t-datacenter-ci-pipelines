@@ -13,6 +13,7 @@ netmask: 255.255.255.0
 
 # NSX manager cluster configs
 nsx_manager_ips: 192.168.110.33,192.168.110.34,192.168.110.35 # 3 node cluster is recommended. 1 is minimum, 3 is max
+nsx_manager_virtual_ip: 0.0.0.0
 nsx_manager_username: admin
 nsx_manager_password: Admin!23Admin
 nsx_manager_hostname_prefix: "nsxt-mgr" # Generated hostname: nsxt-mgr-1.corp.local.io, will be FQDN

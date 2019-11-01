@@ -329,7 +329,7 @@
               type: UplinkHostSwitchProfile
             host_switch_name: "{{overlay_host_switch}}"
             pnics:
-            - device_name: fp-eth1
+            - device_name: fp-eth0
               uplink_name: "{{uplink_1_name}}"
             ip_assignment_spec:
               resource_type: StaticIpPoolSpec
@@ -339,7 +339,7 @@
               type: UplinkHostSwitchProfile
             host_switch_name: "{{hostvars[item].vlan_logical_switch_name}}_hostswitch"
             pnics:
-            - device_name: fp-eth0
+            - device_name: fp-eth1
               uplink_name: "{{uplink_1_name}}"
           - host_switch_profiles:
             - name: "{{edge_uplink_prof}}"
@@ -366,9 +366,8 @@
               placement_type: VsphereDeploymentConfig
               vc_name: "{{compute_manager_name}}"
               data_network_ids:
-              - "{{hostvars[item].vc_uplink_network_for_edge}}"
               - "{{hostvars[item].vc_overlay_network_for_edge}}"
-              - "{{hostvars[item].vc_management_network_for_edge}}"
+              - "{{hostvars[item].vc_uplink_network_for_edge}}"
               management_network_id: "{{hostvars[item].vc_management_network_for_edge}}"
               hostname: "{{hostvars[item].hostname}}"
               compute_id: "{{hostvars[item].vc_cluster_for_edge}}"

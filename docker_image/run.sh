@@ -80,16 +80,20 @@ docker run --name nginx-server -v ${BIND_MOUNT_DIR}:/usr/share/nginx/html:ro -p 
 
 mkdir -p $ROOT_WORK_DIR
 cd $ROOT_WORK_DIR
-git clone https://github.com/concourse/concourse-docker.git
-git clone -b $nsx_t_pipeline_branch --single-branch https://github.com/vmware/nsx-t-datacenter-ci-pipelines.git
 
-concourse_docker_dir=${ROOT_WORK_DIR}/concourse-docker
+#git clone https://github.com/concourse/concourse-docker.git
+#concourse_docker_dir=${ROOT_WORK_DIR}/concourse-docker
+#cp ${concourse_docker_dir}/keys/generate $BIND_MOUNT_DIR
+#./generate
+
+git clone -b $nsx_t_pipeline_branch --single-branch https://github.com/vmware/nsx-t-datacenter-ci-pipelines.git
 pipeline_dir=${ROOT_WORK_DIR}/nsx-t-datacenter-ci-pipelines
-cp ${concourse_docker_dir}/keys/generate $BIND_MOUNT_DIR
 cp ${pipeline_dir}/docker_compose/docker-compose.yml $BIND_MOUNT_DIR
+cp ${pipeline_dir}/functions/generate-keys.sh $BIND_MOUNT_DIR
 
 cd $BIND_MOUNT_DIR
-./generate
+chmod +x generate-keys.sh
+./generate-keys.sh
 
 # prepare the yaml for docker compose
 concourse_version=4.2.1

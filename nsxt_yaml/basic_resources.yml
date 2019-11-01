@@ -153,7 +153,8 @@
         node_deployment_info:
           resource_type: "HostNode"
           display_name: "{{hostvars[item].fabric_node_name}}"
-          ip_addresses: "{{hostvars[item].ip}}"
+          ip_addresses:
+          - "{{hostvars[item].ip}}"
           os_type: "ESXI"
           os_version: "{{hostvars[item].esx_os_version}}"
           host_credential:
