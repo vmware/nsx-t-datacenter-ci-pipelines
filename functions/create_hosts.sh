@@ -9,6 +9,7 @@ function create_manager_host {
   cat >> manager_host <<-EOF
 
 nsx_manager_ip="$manager_ip"
+nsx_license_key="$nsx_license_key_int"
 nsx_manager_username="$nsx_manager_username_int"
 nsx_manager_password="$nsx_manager_password_int"
 nsx_manager_assigned_hostname="$manager_hostname"
@@ -53,7 +54,9 @@ EOF
 function create_edge_hosts {
   echo "[edge_nodes]" > edge_vms
   edge_ips_int=($(echo "$edge_ips_int" | sed -e 's/,/ /g'))
-  per_edge_params=("edge_deployment_size_int" "vc_datacenter_for_edge_int" "vc_cluster_for_edge_int" "vc_datastore_for_edge_int" "vc_uplink_network_for_edge_int" "vc_overlay_network_for_edge_int" "vc_management_network_for_edge_int")
+  per_edge_params=("edge_deployment_size_int" "vc_datacenter_for_edge_int" "vc_cluster_for_edge_int"
+                   "vc_datastore_for_edge_int" "vc_uplink_network_for_edge_int"
+                   "vc_overlay_network_for_edge_int" "vc_management_network_for_edge_int")
 
   num_edges=${#edge_ips_int[@]}
 
@@ -184,7 +187,8 @@ EOF
   set_list_var_and_strip_whitespaces clusters_to_install_nsx_int hosts
   set_list_var_and_strip_whitespaces per_cluster_vlans_int hosts
 
-  optional_params=("tier0_ha_vip_int" "tier0_uplink_port_ip_2_int" "compute_manager_2_username_int" "compute_manager_2_password_int" "compute_manager_2_vcenter_ip_int")
+  optional_params=("tier0_ha_vip_int" "tier0_uplink_port_ip_2_int" "compute_manager_2_username_int"
+                   "compute_manager_2_password_int" "compute_manager_2_vcenter_ip_int")
   for param in "${optional_params[@]}"; do
     param_val="${!param}"
     if [[ $param_val != "" && $param_val != "null" ]]; then

@@ -1,14 +1,13 @@
 ---
-# Use reference instead of repeating the nsx-t params
-nsx_t_gen_params: &nsx-t-gen-params
+nsx_t_install_params: &nsx-t-install-params
   enable_ansible_debug_int: ((enable_ansible_debug))
+  vcenter_datacenter_int: ((vcenter_datacenter))
+  vcenter_datastore_int: ((vcenter_datastore))
+  mgmt_portgroup_int: ((mgmt_portgroup))
+  vcenter_cluster_int: ((vcenter_cluster))
   vcenter_ip_int: ((vcenter_ip))
   vcenter_username_int: ((vcenter_username))
   vcenter_password_int: ((vcenter_password))
-  vcenter_datacenter_int: ((vcenter_datacenter))
-  vcenter_cluster_int: ((vcenter_cluster))
-  vcenter_datastore_int: ((vcenter_datastore))
-  mgmt_portgroup_int: ((mgmt_portgroup))
   dns_server_int: ((dns_server))
   dns_domain_int: ((dns_domain))
   ntp_servers_int: ((ntp_servers))
@@ -21,6 +20,7 @@ nsx_t_gen_params: &nsx-t-gen-params
   unified_appliance_int: ((unified_appliance))
   nsx_manager_ips_int: ((nsx_manager_ips))
   nsx_manager_virtual_ip_int: ((nsx_manager_virtual_ip))
+  nsx_license_key_int: ((nsx_license_key))
   nsx_manager_username_int: ((nsx_manager_username))
   nsx_manager_password_int: ((nsx_manager_password))
   nsx_manager_hostname_prefix_int: ((nsx_manager_hostname_prefix))
@@ -34,12 +34,9 @@ nsx_t_gen_params: &nsx-t-gen-params
 
   compute_manager_username_int: ((compute_manager_username))
   compute_manager_password_int: ((compute_manager_password))
-  edge_uplink_profile_vlan_int: ((edge_uplink_profile_vlan))
-  esxi_uplink_profile_vlan_int: ((esxi_uplink_profile_vlan))
-  vtep_ip_pool_cidr_int: ((vtep_ip_pool_cidr))
-  vtep_ip_pool_gateway_int: ((vtep_ip_pool_gateway))
-  vtep_ip_pool_start_int: ((vtep_ip_pool_start))
-  vtep_ip_pool_end_int: ((vtep_ip_pool_end))
+  compute_manager_2_username_int: ((compute_manager_2_username))
+  compute_manager_2_password_int: ((compute_manager_2_password))
+  compute_manager_2_vcenter_ip_int: ((compute_manager_2_vcenter_ip))
 
   edge_ips_int: ((edge_ips))
   edge_default_gateway_int: ((edge_default_gateway))
@@ -55,6 +52,24 @@ nsx_t_gen_params: &nsx-t-gen-params
   vc_uplink_network_for_edge_int: ((vc_uplink_network_for_edge))
   vc_overlay_network_for_edge_int: ((vc_overlay_network_for_edge))
   vc_management_network_for_edge_int: ((vc_management_network_for_edge))
+  edge_uplink_profile_vlan_int: ((edge_uplink_profile_vlan))
+  esxi_uplink_profile_vlan_int: ((esxi_uplink_profile_vlan))
+
+  vtep_ip_pool_cidr_int: ((vtep_ip_pool_cidr))
+  vtep_ip_pool_gateway_int: ((vtep_ip_pool_gateway))
+  vtep_ip_pool_start_int: ((vtep_ip_pool_start))
+  vtep_ip_pool_end_int: ((vtep_ip_pool_end))
+
+add_nsx_t_routers_params: &add-nsx-t-routers-params
+  nsx_manager_ips_int: ((nsx_manager_ips))
+  nsx_manager_username_int: ((nsx_manager_username))
+  nsx_manager_password_int: ((nsx_manager_password))
+
+  edge_ips_int: ((edge_ips))
+  edge_ip_prefix_length_int: ((edge_ip_prefix_length))
+  edge_hostname_prefix_int: ((edge_hostname_prefix))
+  edge_transport_node_prefix_int: ((edge_transport_node_prefix))
+
   clusters_to_install_nsx_int: ((clusters_to_install_nsx))
   per_cluster_vlans_int: ((per_cluster_vlans))
   esx_ips_int: ((esx_ips))
@@ -70,9 +85,14 @@ nsx_t_gen_params: &nsx-t-gen-params
   tier0_uplink_port_ip_2_int: ((tier0_uplink_port_ip_2))
   tier0_ha_vip_int: ((tier0_ha_vip))
 
-  compute_manager_2_username_int: ((compute_manager_2_username))
-  compute_manager_2_password_int: ((compute_manager_2_password))
-  compute_manager_2_vcenter_ip_int: ((compute_manager_2_vcenter_ip))
+nsx_t_extras_params: &nsx-t-extras-params
+  nsx_manager_ips_int: ((nsx_manager_ips))
+  nsx_manager_virtual_ip_int: ((nsx_manager_virtual_ip))
+  nsx_manager_username_int: ((nsx_manager_username))
+  nsx_manager_password_int: ((nsx_manager_password))
+  nsx_manager_hostname_prefix_int: ((nsx_manager_hostname_prefix))
+  nsx_manager_cluster_fqdn_int: ((nsx_manager_cluster_fqdn))
+  dns_domain_int: ((dns_domain))
 
   nsx_t_t1router_logical_switches_spec_int: ((nsx_t_t1router_logical_switches_spec))
   nsx_t_ha_switching_profile_spec_int: ((nsx_t_ha_switching_profile_spec))
@@ -143,7 +163,7 @@ jobs:
 
   - task: install-nsx-t
     file: nsx-t-gen-pipeline/tasks/install-nsx-t/task.yml
-    params: *nsx-t-gen-params
+    params: *nsx-t-install-params
 
 - name: add-nsx-t-routers
   plan:
@@ -156,7 +176,7 @@ jobs:
 
   - task: add-nsx-t-routers
     file: nsx-t-gen-pipeline/tasks/add-nsx-t-routers/task.yml
-    params: *nsx-t-gen-params
+    params: *add-nsx-t-routers-params
 
 - name: config-nsx-t-extras
   plan:
@@ -169,7 +189,7 @@ jobs:
 
   - task: config-nsx-t-extras
     file: nsx-t-gen-pipeline/tasks/config-nsx-t-extras/task.yml
-    params: *nsx-t-gen-params
+    params: *nsx-t-extras-params
 
 - name: standalone-install-nsx-t
   plan:
@@ -180,7 +200,7 @@ jobs:
 
   - task: install-nsx-t
     file: nsx-t-gen-pipeline/tasks/install-nsx-t/task.yml
-    params: *nsx-t-gen-params
+    params: *nsx-t-install-params
 
 - name: standalone-add-nsx-t-routers
   plan:
@@ -191,7 +211,7 @@ jobs:
 
   - task: add-nsx-t-routers
     file: nsx-t-gen-pipeline/tasks/add-nsx-t-routers/task.yml
-    params: *nsx-t-gen-params
+    params: *add-nsx-t-routers-params
 
 - name: standalone-config-nsx-t-extras
   plan:
@@ -202,4 +222,4 @@ jobs:
 
   - task: config-nsx-t-extras
     file: nsx-t-gen-pipeline/tasks/config-nsx-t-extras/task.yml
-    params: *nsx-t-gen-params
+    params: *nsx-t-extras-params

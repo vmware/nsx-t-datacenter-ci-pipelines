@@ -1,9 +1,12 @@
-enable_ansible_debug: false # set value to true for verbose output from ansible
+### Configs marked OPTIONAL below can be removed from the param file
+### if they are N/A or not desired.
 
+### General settings
+enable_ansible_debug: false # set value to true for verbose output from Ansible
 # format: "http://<jumphost_ip>:40001"
 nsx_image_webserver: "http://192.168.110.11:40001"
 
-# NSX general network settings
+### NSX general network settings
 mgmt_portgroup: 'ESXi-RegionA01-vDS-COMP'
 dns_server: 192.168.110.10
 dns_domain: corp.local.io
@@ -11,37 +14,40 @@ ntp_servers: time.vmware.com
 default_gateway: 192.168.110.1
 netmask: 255.255.255.0
 
-# NSX manager cluster configs
-nsx_manager_ips: 192.168.110.33,192.168.110.34,192.168.110.35 # 3 node cluster is recommended. 1 is minimum, 3 is max
+### NSX manager cluster configs
+# Three node cluster is recommended. 1 is minimum, 3 is max
+nsx_manager_ips: 192.168.110.33,192.168.110.34,192.168.110.35 # Manager IPs.
 nsx_manager_username: admin
 nsx_manager_password: Admin!23Admin
-nsx_manager_hostname_prefix: "nsxt-mgr"
-nsx_manager_virtual_ip: 0.0.0.0
-nsx_manager_cluster_fqdn: corp.local.io # FQDN for the manager, will be used to generate cert for vip
-nsx_manager_root_pwd: Admin!23Admin # Min 12 chars, upper, lower, number, special digit
-nsx_manager_cli_pwd: Admin!23Admin
-nsx_manager_deployment_size: small # Recommended for real bare-bones demo, smallest setup
+nsx_manager_hostname_prefix: "nsxt-mgr"   # Min 12 chars, upper, lower, number, special digit
+nsx_manager_virtual_ip: 192.168.110.36    # [OPTIONAL] Virtual IP as the access IP for the manager cluster
+# FQDN is required if virtual IP is configured
+nsx_manager_cluster_fqdn: corp.local.io   # [OPTIONAL] FQDN for the manager, will be used to generate cert for VIP
+nsx_license_key: 11111-22222-33333-44444-55555
+nsx_manager_root_pwd: Admin!23Admin       # [OPTIONAL] Defaults to nsx_manager_password if not set
+nsx_manager_cli_pwd: Admin!23Admin        # [OPTIONAL] Defaults to nsx_manager_password if not set
+nsx_manager_deployment_size: small        # Recommended for real bare-bones demo, smallest setup
 nsx_manager_deployment_ip_prefix_length: 23
 nsx_manager_ssh_enabled: true
 vcenter_ip: 192.168.110.22
 vcenter_username: administrator@corp.local
 vcenter_password: "VMware1!"
 vcenter_datacenter: RegionA01
-vcenter_cluster: RegionA01-MGMT # management cluster
+vcenter_cluster: RegionA01-MGMT
 vcenter_datastore: iscsi
 resource_reservation_off: true
 
 # Compute manager credentials should be the same as above vCenter's if
 # controllers and edges are to be on the same vCenter
-compute_manager_username: "Administrator@vsphere.local"
-compute_manager_password: "VMware1!"
+compute_manager_username: "Administrator@vsphere.local"  # [OPTIONAL] Defaults to vcenter_username if not set
+compute_manager_password: "VMware1!"                     # [OPTIONAL] Defaults to vcenter_password if not set
 # compute manager for the compute cluster (2nd vCenter)
-compute_manager_2_vcenter_ip: "null"
-compute_manager_2_username: "null"
-compute_manager_2_password: "null"
+compute_manager_2_vcenter_ip: "null"     # [OPTIONAL]
+compute_manager_2_username: "null"       # [OPTIONAL]
+compute_manager_2_password: "null"       # [OPTIONAL]
 
 edge_uplink_profile_vlan: 0 # For outbound uplink connection used by Edge, usually keep as 0
-esxi_uplink_profile_vlan: 0 # For internal overlay connection used by Esxi hosts, usually trasnport VLAN ID
+esxi_uplink_profile_vlan: 0 # For internal overlay connection used by ESXi hosts, usually transport VLAN ID
 
 # Virtual Tunnel Endpoint network ip pool
 vtep_ip_pool_cidr: 192.168.213.0/24
@@ -57,15 +63,15 @@ tier0_uplink_next_hop_ip: 192.168.100.1
 tier0_uplink_port_ip_2: 192.168.100.5
 tier0_ha_vip: 192.168.100.3
 
-## Edge nodes
-edge_ips: 192.168.110.37,192.168.110.38    #comma separated based in number of required edges
+### Edge nodes
+edge_ips: 192.168.110.37,192.168.110.38    # Comma separated based in number of required edges
 edge_default_gateway: 192.168.110.1
 edge_ip_prefix_length: 24
 edge_hostname_prefix: nsx-t-edge
 edge_transport_node_prefix: edge-transp-node
 edge_cli_password: "VMware1!"
 edge_root_password: "VMware1!"
-edge_deployment_size: "large" #Large recommended for PKS deployments
+edge_deployment_size: "large"     # Large recommended for PKS deployments
 vc_datacenter_for_edge: RegionA01
 vc_cluster_for_edge: RegionA01-MGMT
 vc_datastore_for_edge: iscsi
@@ -73,14 +79,14 @@ vc_uplink_network_for_edge: "ESXi-RegionA01-vDS-COMP"
 vc_overlay_network_for_edge: "VM-RegionA01-vDS-COMP"
 vc_management_network_for_edge: "ESXi-RegionA01-vDS-COMP"
 
-## ESX hosts
-#Intsll vSphere clusters automatically
-clusters_to_install_nsx: RegionA01-MGMT,RegionA01-K8s    #Comma seprated
-per_cluster_vlans: 0,0  #Comma seprated, order of VLANs applied same as order of clusters
+### ESX hosts
+# Install NSX on vSphere clusters automatically
+clusters_to_install_nsx: RegionA01-MGMT,RegionA01-K8s    # Comma separated
+per_cluster_vlans: 0,0  # Comma separated, order of VLANs applied same as order of clusters
 
-esx_ips: "" # additional esx hosts, if any, to be individually installed
-esx_os_version: "6.5.0"
-esx_root_password: "ca$hc0w"
-esx_hostname_prefix: "esx-host"
+esx_ips: ""                      # [OPTIONAL] additional esx hosts, if any, to be individually installed
+esx_os_version: "6.5.0"          # [OPTIONAL]
+esx_root_password: "ca$hc0w"     # [OPTIONAL]
+esx_hostname_prefix: "esx-host"  # [OPTIONAL]
 
 esx_available_vmnic: "vmnic1" # comma separated physical NICs, applies to both cluster installation or ESXi installation
