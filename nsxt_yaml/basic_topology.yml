@@ -55,6 +55,17 @@
     - name: Wait for Manager API server to be up
       shell: "last=1; while [ $last -ne 0 ]; do curl -s -o /dev/null -ku '{{hostvars['localhost'].nsx_manager_username}}:{{hostvars['localhost'].nsx_manager_password}}' https://{{hostvars['localhost'].nsx_manager_ip}}/api/v1/trust-management/certificates --connect-timeout 5; last=$?; echo \"waiting for NSX Manager to come up\"; done"
 
+    - name: Add license for NSX-T manager if applicable
+      nsxt_licenses:
+        hostname: "{{hostvars['localhost'].nsx_manager_ip}}"
+        username: "{{hostvars['localhost'].nsx_manager_username}}"
+        password: "{{hostvars['localhost'].nsx_manager_password}}"
+        validate_certs: False
+        license_key: "{{hostvars['localhost'].nsx_license_key}}"
+        state: present
+      when:
+        - hostvars['localhost'].nsx_license_key != "null"
+
     # this should've been enabled already
     - name: Enable install-upgrade service
       uri:
@@ -237,63 +248,13 @@
         state: present
       register: vtep_pool_object
 
-      # TODO: does not support tag
-    - name: Create Transport Zones
-      nsxt_transport_zones:
-        hostname: "{{hostvars['localhost'].nsx_manager_ip}}"
-        username: "{{hostvars['localhost'].nsx_manager_username}}"
-        password: "{{hostvars['localhost'].nsx_manager_password}}"
-        validate_certs: False
-        resource_type: "TransportZone"
-        display_name: "{{item.display_name}}"
-        description: "NSX {{item.transport_type}} Transport Zone"
-        transport_type: "{{item.transport_type}}"
-        host_switch_name: "{{item.host_switch_name}}"
-        state: "present"
-      with_items:
-      - "{{transportzones}}"
-
-    - name: Create uplink profile
-      nsxt_uplink_profiles:
-        hostname: "{{hostvars['localhost'].nsx_manager_ip}}"
-        username: "{{hostvars['localhost'].nsx_manager_username}}"
-        password: "{{hostvars['localhost'].nsx_manager_password}}"
-        validate_certs: False
-        resource_type: UplinkHostSwitchProfile
-        display_name: "{{item.display_name}}"
-        mtu: 1600
-        teaming: "{{item.teaming}}"
-        transport_vlan: "{{item.transport_vlan}}"
-        state: "present"
-      with_items:
-      - "{{uplink_profiles}}"
-
-      # # TODO: support tags
-    - name: Create VTEP IP pool
-      nsxt_ip_pools:
-        hostname: "{{hostvars['localhost'].nsx_manager_ip}}"
-        username: "{{hostvars['localhost'].nsx_manager_username}}"
-        password: "{{hostvars['localhost'].nsx_manager_password}}"
-        validate_certs: False
-        display_name: "{{vtep_ip_pool_name}}"
-        subnets:
-        - cidr: "{{hostvars['localhost'].vtep_ip_pool_cidr}}"
-          allocation_ranges:
-          - start: "{{ hostvars['localhost'].vtep_ip_pool_start }}"
-            end: "{{ hostvars['localhost'].vtep_ip_pool_end }}"
-          gateway_ip: "{{hostvars['localhost'].vtep_ip_pool_gateway}}"
-        state: present
-      register: vtep_pool_object
-
     - name: Add Edge VM as transport node
       nsxt_transport_nodes:
         hostname: "{{hostvars['localhost'].nsx_manager_ip}}"
         username: "{{hostvars['localhost'].nsx_manager_username}}"
         password: "{{hostvars['localhost'].nsx_manager_password}}"
         validate_certs: False
-        resource_type: "TransportNode"
         display_name: "{{hostvars[item].transport_node_name}}"
-        description: Edge Transport Node for {{hostvars[item].ip}}
         host_switch_spec:
           resource_type: StandardHostSwitchSpec
           host_switches:
@@ -330,13 +291,13 @@
             vm_deployment_config:
               placement_type: VsphereDeploymentConfig
               vc_name: "{{compute_manager_name}}"
-              data_network_ids:
+              data_networks:
               - "{{hostvars[item].vc_overlay_network_for_edge}}"
               - "{{hostvars[item].vc_uplink_network_for_edge}}"
-              management_network_id: "{{hostvars[item].vc_management_network_for_edge}}"
+              management_network: "{{hostvars[item].vc_management_network_for_edge}}"
               hostname: "{{hostvars[item].hostname}}"
-              compute_id: "{{hostvars[item].vc_cluster_for_edge}}"
-              storage_id: "{{hostvars[item].vc_datastore_for_edge}}"
+              compute: "{{hostvars[item].vc_cluster_for_edge}}"
+              storage: "{{hostvars[item].vc_datastore_for_edge}}"
               default_gateway_addresses:
               - "{{hostvars[item].default_gateway}}"
               management_port_subnets:

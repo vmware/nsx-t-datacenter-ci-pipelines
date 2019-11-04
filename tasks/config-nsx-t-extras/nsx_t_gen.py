@@ -252,43 +252,6 @@ def create_t0_logical_router(t0_router):
     return router_id
 
 
-def create_t0_logical_router_and_port(t0_router):
-    api_endpoint = ROUTER_PORTS_ENDPOINT
-    router_name = t0_router['name']
-    subnet = t0_router['subnet']
-
-    router_id = create_t0_logical_router(router_name)
-    logical_router_port_id = check_logical_router_port(t0_router_id)
-    if logical_router_port_id is not None:
-        return t0_router_id
-
-    name = "LogicalRouterUplinkPortFor%s" % (router_name)
-    descp = "Uplink Port created for %s router" % (router_name)
-    target_display_name = "LogicalRouterUplinkFor%s" % (router_name)
-
-    network = subnet.split('/')[0]
-    cidr = subnet.split('/')[1]
-
-    payload1 = {
-        'resource_type': 'LogicalRouterUpLinkPort',
-        'description': descp,
-        'display_name': name,
-        'logical_router_id': router_id,
-        # 'edge_cluster_member_index' : [ t0_router['edge_index'] ],
-        'subnets': [{
-            'ip_addresses': [network],
-            'prefix_length': cidr
-        }]
-    }
-
-    resp = client.post(api_endpoint, payload1)
-    target_id = resp.json()['id']
-
-    print("Created Logical Router Uplink Port for T0Router: '{}'".format(router_name))
-    logical_router_port_id = resp.json()['id']
-    return router_id
-
-
 def create_t1_logical_router(router_name, edge_cluster=False):
     api_endpoint = ROUTERS_ENDPOINT
 
@@ -558,28 +521,25 @@ def create_pas_tags():
 
 
 def create_container_ip_blocks():
-    ip_blocks_defn = os.getenv('nsx_t_container_ip_block_spec_int', '').strip()
-    if ip_blocks_defn == '' or ip_blocks_defn == 'null':
-        print('No yaml payload set for the nsx_t_container_ip_block_spec_int, ignoring Container IP Block section!')
+    ip_blocks_defn = get_rsc_def_if_configured(
+        'nsx_t_container_ip_block_spec_int', 'container_ip_blocks')
+    if not ip_blocks_defn:
         return
-
-    ip_blocks = yaml.load(ip_blocks_defn)
-    for ip_block in ip_blocks['container_ip_blocks']:
+    for ip_block in ip_blocks_defn:
         ip_block_key = '%s:%s' % (IP_BLOCK, ip_block['name'])
         if ip_block_key in cache:
             print "IP block %s already exists, skip creation" % ip_block['name']
             continue
-        create_container_ip_block(ip_block['name'], ip_block['cidr'], ip_block.get('tags'))
+        create_container_ip_block(
+            ip_block['name'], ip_block['cidr'], ip_block.get('tags'))
 
 
 def create_external_ip_pools():
-    ip_pools_defn = os.getenv('nsx_t_external_ip_pool_spec_int', '').strip()
-    if ip_pools_defn == '' or ip_pools_defn == 'null':
-        print('No yaml payload set for the NSX_T_EXTERNAL_IP_POOL_SPEC, ignoring External IP Pool section!')
+    ip_pools_defn = get_rsc_def_if_configured(
+        'nsx_t_external_ip_pool_spec_int', 'external_ip_pools')
+    if not ip_pools_defn:
         return
-
-    ip_pools = yaml.load(ip_pools_defn)
-    for ip_pool in ip_pools['external_ip_pools']:
+    for ip_pool in ip_pools_defn:
         ip_pool_key = '%s:%s' % (IP_POOL, ip_pool['name'])
         if ip_pool_key in cache:
             print "IP pool %s already exists, skip creation" % ip_pool['name']
@@ -590,20 +550,12 @@ def create_external_ip_pools():
 
 
 def create_ha_switching_profile():
-    ha_switching_profiles_defn = os.getenv('nsx_t_ha_switching_profile_spec_int', '').strip()
-    if ha_switching_profiles_defn == '' or ha_switching_profiles_defn == 'null':
-        print('No yaml payload set for the NSX_T_HA_SWITCHING_PROFILE_SPEC, ignoring HASpoofguard profile section!')
+    ha_switching_profiles_defn = get_rsc_def_if_configured(
+        'nsx_t_ha_switching_profile_spec_int', 'ha_switching_profiles')
+    if not ha_switching_profiles_defn:
         return
-
-    ha_switching_profiles = yaml.load(ha_switching_profiles_defn)['ha_switching_profiles']
-    if ha_switching_profiles is None:
-        print(
-            'No valid yaml payload set for the NSX_T_HA_SWITCHING_PROFILE_SPEC, ignoring HASpoofguard profile section!')
-        return
-
     api_endpoint = SWITCHING_PROFILE_ENDPOINT
-
-    for ha_switching_profile in ha_switching_profiles:
+    for ha_switching_profile in ha_switching_profiles_defn:
         switching_profile_name = ha_switching_profile['name']
         switching_profile_id = check_switching_profile(ha_switching_profile['name'])
         if switching_profile_id is None:
@@ -629,9 +581,6 @@ def list_certs():
     csr_request_spec = os.getenv('nsx_t_csr_request_spec_int', '').strip()
     if csr_request_spec == '' or csr_request_spec == 'null':
         return
-
-    csr_request = yaml.load(csr_request_spec)['csr_request']
-
     api_endpoint = TRUST_MGMT_CSRS_ENDPOINT
     existing_csrs_response = client.get(api_endpoint).json()
     if existing_csrs_response['result_count'] > 0:
@@ -686,14 +635,9 @@ def configure_self_signed_certs(cluster_cert=False):
         print('Value not set for the NSX_T_MANAGER_HOST_NAME, cannot create self-signed cert')
         return
 
-    csr_request_spec = os.getenv('nsx_t_csr_request_spec_int', '').strip()
-    if csr_request_spec == '' or csr_request_spec == 'null':
-        print('No CSR request spec configured, cannot create self-signed cert')
-        return
-    csr_request = yaml.load(csr_request_spec)['csr_request']
-    if csr_request is None:
-        print('No valid yaml payload set for the NSX_T_CSR_REQUEST_SPEC, '
-              'ignoring CSR self-signed cert section!')
+    csr_request = get_rsc_def_if_configured(
+        'nsx_t_csr_request_spec_int', 'csr_request')
+    if not csr_request:
         return
 
     fqdn = ''
@@ -795,14 +739,8 @@ def check_for_existing_rule(existing_nat_rules, new_nat_rule):
 
 
 def add_t0_route_nat_rules():
-    nat_rules_defn = os.getenv('nsx_t_nat_rules_spec_int', '').strip()
-    if nat_rules_defn == '' or nat_rules_defn == 'null':
-        print('No yaml payload set for the NSX_T_NAT_RULES_SPEC, ignoring nat rules section!')
-        return
-
-    nat_rules_defns = yaml.load(nat_rules_defn)['nat_rules']
-    if nat_rules_defns is None or len(nat_rules_defns) <= 0:
-        print('No nat rule entries in the NSX_T_NAT_RULES_SPEC, nothing to add/update!')
+    nat_rules_defns = get_rsc_def_if_configured('nsx_t_nat_rules_spec_int', 'nat_rules')
+    if not nat_rules_defns:
         return
 
     t0_router_id = global_id_map['ROUTER:TIER0:' + nat_rules_defns[0]['t0_router']]
@@ -1019,22 +957,16 @@ def add_lbr_virtual_server(virtual_server_defn):
 
 
 def add_loadbalancers():
-    lbr_spec_defn = os.getenv('nsx_t_lbr_spec_int', '').strip()
-    if lbr_spec_defn == '' or lbr_spec_defn == 'null':
-        print('No yaml payload set for the NSX_T_LBR_SPEC, ignoring loadbalancer section!')
-        return
-
-    lbrs_defn = yaml.load(lbr_spec_defn)['loadbalancers']
-    if lbrs_defn is None or len(lbrs_defn) <= 0:
-        print('No valid yaml passed in the NSX_T_LBR_SPEC, nothing to add/update for LBR!')
+    lbrs_defn = get_rsc_def_if_configured('nsx_t_lbr_spec_int', 'loadbalancers')
+    if not lbrs_defn:
         return
 
     for lbr in lbrs_defn:
         t1_router_id = global_id_map['ROUTER:TIER1:' + lbr['t1_router']]
         if t1_router_id is None:
-            print('Error!! No T1Router found with name: {} referred against LBR: {}'.format(lbr['t1_router'],
-                                                                                            lbr['name']))
-            exit - 1
+            print('Error!! No T1Router found with name: {} referred against '
+                  'LBR: {}'.format(lbr['t1_router'], lbr['name']))
+            return
 
         lbr_api_endpoint = LBR_SERVICES_ENDPOINT
         lbr_service_payload = {
@@ -1081,20 +1013,17 @@ def create_all_t1_routers():
     # if t0_router is None:
     #   print 'No valid T0Router content NSX_T_T0ROUTER_SPEC passed'
     #   return
-    nat_rules_defn = os.getenv('nsx_t_nat_rules_spec_int', '').strip()
-    nat_rules_defns = yaml.load(nat_rules_defn)['nat_rules']
-    if nat_rules_defns is None or len(nat_rules_defns) <= 0:
-        print('No nat rule entries in the NSX_T_NAT_RULES_SPEC, nothing to add/update!')
+    nat_rules_defn = get_rsc_def_if_configured('nsx_t_nat_rules_spec_int', 'nat_rules')
+    if not nat_rules_defn:
         return
-    t0_router_name = nat_rules_defns[0]['t0_router']
+    t0_router_name = nat_rules_defn[0]['t0_router']
     t0_router_key = build_router_key(TIER0, t0_router_name)
     t0_router_id = global_id_map[t0_router_key]
     t0_router = cache[t0_router_key]
 
-    t1_router_content = os.getenv('nsx_t_t1router_logical_switches_spec_int')
-    t1_routers = yaml.load(t1_router_content)['t1_routers']
-    if t1_routers is None:
-        print 'No valid T1Router content NSX_T_T1ROUTER_LOGICAL_SWITCHES_SPEC passed'
+    t1_routers = get_rsc_def_if_configured(
+        'nsx_t_t1router_logical_switches_spec_int', 't1_routers')
+    if not t1_routers:
         return
 
     pas_tags = create_pas_tags()
@@ -1128,9 +1057,8 @@ def create_all_t1_routers():
 def set_cluster_vip_address():
     vip_addr = os.getenv('nsx_manager_virtual_ip_int', '').strip()
     if not vip_addr or vip_addr == '' or vip_addr == 'null':
-        print('No yaml payload set for the NSX_T_LBR_SPEC, ignoring loadbalancer section!')
+        print('No VIP address set, ignoring VIP settings!')
         return
-
     current_vip = client.get(VIP_ENDPOINT).json()['ip_address']
     if current_vip != vip_addr:
         clear_vip_endpoint = '%s?%s' % (VIP_ENDPOINT, 'action=clear_virtual_ip')
@@ -1143,6 +1071,20 @@ def set_cluster_vip_address():
         print('Detected no change with nsx manager VIP address!')
     # This function will check if there's already CSR with vip fqdn
     configure_self_signed_certs(cluster_cert=True)
+
+
+def get_rsc_def_if_configured(rsc_name, rsc_subname):
+    rsc = os.getenv(rsc_name, '').strip()
+    if not rsc or rsc == 'null':
+        print('No resources specified for %s, ignoring this section!' % rsc_name)
+        return None
+    if rsc_subname:
+        rsc_defns = yaml.load(rsc).get(rsc_subname)
+        if not rsc_defns or rsc_defns == 'null':
+            print('No valid payload set for %s of %s, skip creation!' % (rsc_subname, rsc_name))
+            return None
+        else:
+            return rsc_defns
 
 
 def get_args():
