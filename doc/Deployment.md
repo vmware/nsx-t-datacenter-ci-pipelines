@@ -6,7 +6,7 @@ The "nsx-t-ci-pipeline" Docker image automatically performs the following tasks:
 * Deploys Concourse <br>
 * Registers the pipeline and un-pauses it <br>
 
-By performing these tasks automatically the Docker image saves you on time running these repetitive tasks. But, if you have an existing concourse server that you want to run the pipeline from, you can skip this section and go straight to [here](##Configuring the pipeline to run on an existing Concourse server)
+By performing these tasks automatically the Docker image saves you on time running these repetitive tasks. But, if you have an existing concourse server that you want to run the pipeline from, you can skip this section and go straight to [here](#configuring-the-pipeline-to-run-on-an-existing-concourse-server)
 If you are planning on using this docker image to download the bits, make sure to comment out the file names in the parameter file for the NSX manager ova and the OVFTool, this is because the Docker image will take care of serving the file for you. 
 
 ### Jumpbox requirements<br>
@@ -32,7 +32,7 @@ b.	NSX Manager OVA file. <br>
       -e VMWARE_PASSWORD='<myvmware_password>' \
       nsx-t-install
     ```
-    For more information on supported environment variables, checkout the [Pipeline bring-up options](###Pipeline bring-up options) section below. <br>
+    For more information on supported environment variables, checkout the [Pipeline bring-up options](#pipeline-bring-up-options) section below. <br>
     Docker container will start the Concourse Docker (Concourse CI running in a Docker container) (https://github.com/concourse/concourse-docker) which creates three Concourse containers (one database, one web, and one worker container) and one nginx webserver container; it consists of one Concourse pipeline<br>
     If you did not place the files manually in the /home/concourse folder, the script will download the latest versions from MyVMware using the vmw-cli tool written by Andrew Obersnel <br>
     You can watch the progress of the creation of the containers by running `` watch docker ps ``<br>
@@ -51,7 +51,6 @@ b.	NSX Manager OVA file. <br>
     user: nsx 
     password: vmware
     ```
-<br>
 
 ## Configuring the pipeline to run on an existing Concourse server
 If you are using an existing Concourse server do the following:
@@ -62,7 +61,7 @@ If you are using an existing Concourse server do the following:
     ova_file_name: "nsx-unified-appliance-2.2.0.0.0.8680778.ova" # Uncomment this if downloaded file manually and placed under /home/concourse 
     ovftool_file_name: "VMware-ovftool-4.2.0-5965791-lin.x86_64.bundle"
     ```
-   Be sure to add __required pipeline branches__ mentioned in the [Pipeline bring-up options](###Pipeline bring-up options) section below.
+   Be sure to add __required pipeline branches__ mentioned in the [Pipeline bring-up options](#pipeline-bring-up-options) section below.
 3. Register the pipeline using: fly -t (target) sp -p (pipeline name) -c (nsx-t-datacenter-ci-pipelines/pipelines/nsx-t-install.yml) -l (parameter file) 
 <br><br>
 
@@ -96,3 +95,32 @@ __If running the pipeline on existing concourse environment and not using the ns
 | nsx_t_pipeline_branch=nsxt_2.3.0 |  nsxt_ansible_branch=nsxt_2.4.0 | nsx_t_pipeline_branch=master |
 
 Also, if ovftool and ova files were downloaded manually, add ``ova_file_name=<ova_file_name>`` and ``ovftool_file_name=<ovftool_file_name>`` in nsx_pipeline_config.yml as well, as mentioned in the section above.
+
+### Running the pipeline
+
+There are four options for running the pipelines:
+1. Full deployment
+- Deploying OVAs and setting up NSX components
+- Setting up logical routing, overlay and transport nodes 
+- Configures Extras such as NAT rules, tags, and spoofguard profiles and LB
+2. OVAs and edge hosts deployment only <br>
+3. Routing only (T0, T1 Routers, and Logical switches), overlay and TNs <br>
+4. Extras configurations only <br> <br>
+
+![](https://github.com/vmware/nsx-t-datacenter-ci-pipelines/blob/Wiki-files/Wiki%20images/concourse3.png?raw=true) 
+<br>
+The idea is that while it makes sense to run the full deployment most of the times, one might want to run only a certain portion of the pipeline in stages. <br>
+For example, it takes a bit of time to deploy the NSX components (about 40 minutes) and much shorter time to deploy the logical routing and extras, one can decide to run only “deploy OVAs” portion and then run the other parts (or the full install), and the pipeline will validate that the previous steps have been completed and will pick it up from there
+For all of these options, we use a single parameters file (See appendix for populating the param file. The following are the steps to run the pipeline.
+<br>
+In the pipeline page select the job you want to run, in this guide we will run the full install:
+
+Click on the first grey box representing the first task <br> <br>
+![](https://github.com/vmware/nsx-t-datacenter-ci-pipelines/blob/Wiki-files/Wiki%20images/concourse4.png) <br>
+
+<br>
+Click on the + sign on the top right <br> <br>
+
+![](https://github.com/vmware/nsx-t-datacenter-ci-pipelines/blob/Wiki-files/Wiki%20images/concourse5.png) <br>
+
+At this point the pipeline should start, you can follow its progress from this site

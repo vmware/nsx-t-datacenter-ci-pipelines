@@ -11,7 +11,11 @@ NSX-T is the next-gen SDN from VMware built ground up for automation, it is supp
 
 __Demo on how to use the pipeline:__ <br>
 [![Demo video](https://raw.githubusercontent.com/vmware/nsx-t-datacenter-ci-pipelines/Wiki-files/Wiki%20images/2018-10-22%2009_48_43-(261)%20How%20to%20deploy%20NSX-T%20Datacenter%20CI%20pipeline%20with%20Concourse%20-%20YouTube.jpg)](http://www.youtube.com/watch?v=wU6FW1eC5B8)
- <br><br>
+ <br>
+ For more information on deployment process, go to the [Deployment page](Deployment.md)
+ For more information on network prerequisites before running this pipeline, go to the [Network Prerequisites page](Network-prerequisites.md)
+ <br>
+ 
 
 ### Pipeline configuration scope
 
@@ -56,6 +60,7 @@ nsx_t_lbr_spec:             <-- Leave empty
 ...
 ```
 Do not delete those lines as Concourse needs to pick up those params even if they are not set.
+For more information on the parameter file, go to the [Parameter file page](Parameter-file.md)
 
 
 
