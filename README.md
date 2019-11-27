@@ -12,8 +12,7 @@ The Concourse pipeline performs the following jobs:
 2. Convert hosts from vCenter clusters specified by user to NSX transport nodes;
 3. Create NSX logical resources to make the environment PAS/PKS deployment ready.
 
-## For the full documentation see the wiki page
-See the wiki: https://github.com/vmware/nsx-t-datacenter-ci-pipelines/wiki
+__For the full documentation see the [doc/](./doc) folder for this repository__
 
 ## Try it out
 On a Ubuntu VM with at least ~30GB of space,
@@ -54,7 +53,7 @@ Ignore this if you are using the docker image provided in this repository.
 
 Browse to the Concourse pipeline: http://<CONCOURSE_URL>/teams/main/pipelines/install-nsx-t/ (example: http://10.85.99.130:8080/teams/main/pipelines/install-nsx-t/) and click on the plus on the upper right corner to trigger a build to install NSX-T. If you are prompted with a username and password, use 'nsx' and 'vmware'.
 
-Check out the [Troubleshooting Guide](https://github.com/vmware/nsx-t-datacenter-ci-pipelines/wiki/Troubleshooting) for troubleshooting tips.
+Check out the [Troubleshooting Guide](./doc/Utilities-and-troubleshooting.md) for troubleshooting tips.
 
 ## Contributing
 
