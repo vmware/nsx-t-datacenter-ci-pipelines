@@ -21,7 +21,7 @@ cd $BIND_MOUNT_DIR
 ova_file_name=$(ls -l *.ova | sed 's/.* nsx/nsx/;s/ova.*/ova/' | tail -n1)
 ovftool_file_name=$(ls -l *.bundle | sed 's/.* VMware-ovftool/VMware-ovftool/;s/bundle.*/bundle/' | tail -n1)
 
-nsxt_version=2.4.0
+nsxt_version=2.5.0
 if [[ $ova_file_name != "" ]]; then
     nsxt_version=$(echo ${ova_file_name##*-} | head -c5)
 elif [[ $NSXT_VERSION != "" ]]; then
@@ -53,19 +53,29 @@ if [[ $ova_file_name == "" ]] || [[ $ovftool_file_name == "" ]]; then
 fi
 
 unified_appliance=true
-nsx_t_pipeline_branch=nsxt_2.4.0
-nsxt_ansible_branch=master
+nsx_t_pipeline_branch=nsxt_2.5.0
+nsxt_ansible_branch=dev
 
 version_num=$(echo $nsxt_version | cut -d'.' -f1)
 version_sub_num=$(echo $nsxt_version | cut -d'.' -f2)
+# 2.4.0 deployments
+if [[ $version_num -eq 2 ]] && [[ $version_sub_num -eq 3 ]]; then
+    nsx_t_pipeline_branch=nsxt_2.4.0
+    nsxt_ansible_branch=master
+fi
+# 2.4.0 and earlier (non unified appliance) deployments
 if [[ $version_num -le 2 ]] && [[ $version_sub_num -le 3 ]]; then
     unified_appliance=false
     nsx_t_pipeline_branch=nsxt_2.3.0
     nsxt_ansible_branch=v1.0.0
 fi
 
+# Overwrite defaults if branches are explicitly passed in as env variables
 if [[ $PIPELINE_BRANCH != "" ]]; then
     nsx_t_pipeline_branch=$PIPELINE_BRANCH
+fi
+if [[ $ANSIBLE_BRANCH != "" ]]; then
+    nsxt_ansible_branch=$ANSIBLE_BRANCH
 fi
 
 pipeline_internal_config="pipeline_config_internal.yml"
@@ -75,7 +85,7 @@ echo "unified_appliance: $unified_appliance" >> $pipeline_internal_config
 echo "nsx_t_pipeline_branch: $nsx_t_pipeline_branch" >> $pipeline_internal_config
 echo "nsxt_ansible_branch: $nsxt_ansible_branch" >> $pipeline_internal_config
 
-# start a web server to host static files such as ovftool and NSX manager OVA
+# Start a web server to host static files such as ovftool and NSX manager OVA
 docker run --name nginx-server -v ${BIND_MOUNT_DIR}:/usr/share/nginx/html:ro -p ${IMAGE_WEBSERVER_PORT}:80 -d nginx
 
 mkdir -p $ROOT_WORK_DIR
@@ -90,13 +100,14 @@ git clone -b $nsx_t_pipeline_branch --single-branch https://github.com/vmware/ns
 pipeline_dir=${ROOT_WORK_DIR}/nsx-t-datacenter-ci-pipelines
 cp ${pipeline_dir}/docker_compose/docker-compose.yml $BIND_MOUNT_DIR
 cp ${pipeline_dir}/functions/generate-keys.sh $BIND_MOUNT_DIR
+cp ${pipeline_dir}/functions/set_default_params.py $BIND_MOUNT_DIR
 
 cd $BIND_MOUNT_DIR
 chmod +x generate-keys.sh
 ./generate-keys.sh
 
-# prepare the yaml for docker compose
-concourse_version=4.2.1
+# Prepare the yaml for docker compose
+concourse_version=5.7.0
 sed -i "0,/^ *- CONCOURSE_EXTERNAL_URL/ s|CONCOURSE_EXTERNAL_URL.*$|CONCOURSE_EXTERNAL_URL=${CONCOURSE_URL}|" docker-compose.yml
 sed -i "0,/^ *- CONCOURSE_GARDEN_DNS_SERVER/ s|CONCOURSE_GARDEN_DNS_SERVER.*$|CONCOURSE_GARDEN_DNS_SERVER=${EXTERNAL_DNS}|" docker-compose.yml
 sed  -i "/^ *image: concourse\/concourse/ s|concourse/concourse.*$|concourse/concourse:$concourse_version|g" docker-compose.yml
@@ -123,7 +134,7 @@ fi
 echo "bringing up Concourse server in a docker-compose cluster"
 docker-compose up -d
 
-# waiting for the concourse API server to start up
+# Wait for the concourse API server to start up
 while true; do
 	curl -s -o /dev/null $CONCOURSE_URL
 	if [[ $? -eq 0 ]]; then
@@ -134,7 +145,11 @@ while true; do
 done
 echo "brought up the Concourse cluster"
 
-# using fly to start the pipeline
+# Fill in the optional parameters with default values for the param file
+echo "Filling optional parameters!"
+python set_default_params.py
+
+# Use fly to start the pipeline
 CONCOURSE_TARGET=nsx-concourse
 PIPELINE_NAME=nsx-t-install
 echo "logging into concourse at $CONCOURSE_URL"

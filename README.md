@@ -12,28 +12,16 @@ The Concourse pipeline performs the following jobs:
 2. Convert hosts from vCenter clusters specified by user to NSX transport nodes;
 3. Create NSX logical resources to make the environment PAS/PKS deployment ready.
 
-## For the full documentation see the wiki page
-See the wiki: https://github.com/vmware/nsx-t-datacenter-ci-pipelines/wiki
+__For the full documentation see the [doc/](./doc) folder for this repository__
 
 ## Try it out
-On a Ubuntu VM with at least ~20GB of space,
+On a Ubuntu VM with at least ~30GB of space,
 ```
-wget https://github.com/vmware/nsx-t-datacenter-ci-pipelines/raw/master/docker_image/nsx-t-install-05202019-ua.tar -O nsx-t-install.tar
+wget https://github.com/vmware/nsx-t-datacenter-ci-pipelines/raw/master/docker_image/nsx-t-install-250.tar -O nsx-t-install.tar
 docker load -i nsx-t-install.tar
 mkdir -p /home/concourse
 ```
 Create nsx_pipeline_config.yml based on a sample config file, e.g. https://github.com/vmware/nsx-t-datacenter-ci-pipelines/blob/master/sample_parameters/PAS_only/nsx_pipeline_config.yml for PAS environment, and place it under /home/concourse. </br>
-__NOTE:__ For some parameters in the config yaml, e.g. 'nsx_manager_virtual_ip' and 'nsx_manager_cluster_fqdn', if you wish to leave those parameters unconfigured, simply leave the parameter stub empty:
-```
-...
-nsx_manager_username: admin
-nsx_manager_virtual_ip:     <-- Leave empty
-nsx_manager_cluster_fqdn:   <-- Leave empty
-...
-nsx_t_lbr_spec:             <-- Leave empty
-...
-```
-Do not delete those lines as the pipeline needs to pick up those params even if they are not set.
 
 ```
 docker run --name nsx-t-install -d \
@@ -51,24 +39,21 @@ Set CONCOURSE_URL to http://<host_ip>:8080 (host_ip is the IP address of the pri
 The above command will automatically download the ovftool (e.g. VMware-ovftool-4.3.0-xxxxxxx-lin.x86_64.bundle) and NSX OVA (nsx-unified-appliance-2.4.0.0.0.xxxxxxx.ova) files from myvmware.com. If you have already downloaded the two files manually, place them under /home/concourse, and you can run above command with VMWARE_USER and VMWARE_PASSWORD skipped. By default, the docker image from master/nsxt_2.4.0 branch downloads nsx ova version 2.4.0. If deploying earlier version (e.g. NSX-T 2.3.0), simply add `` -e NSXT_VERSION=2.3.0 `` in the docker run command above, or use the docker image from nsxt_2.3.0 branch.
 
 ---
-__If running the pipeline on existing concourse environment and not using the nsx-t-install image, please perform following additional steps:__ in nsx_pipeline_config.yml that was created under /home/concourse, add the following lines at the beginning:
-```
-nsxt_ansible_branch=master
-nsx_t_pipeline_branch=master
-```
-if deploying NSX-T 2.4.0 or later, or
-```
-nsxt_ansible_branch=v1.0.0
-nsx_t_pipeline_branch=nsxt_2.3.0
-```
-if deploying NSX-T 2.3.0 or earlier.
+__If running the pipeline on existing concourse environment and not using the nsx-t-install image, please perform following additional steps:__ in nsx_pipeline_config.yml that was created under /home/concourse, add the following two lines at the beginning, depending on which NSX-T version you are deploying:
+
+| NSX-T 2.3.0 & earlier  |   NSX-T 2.4.0   |  NSX-T 2.5.0  |
+|:----------------------:|:---------------:|:-------------:|
+| nsxt_ansible_branch=v1.0.0 |  nsxt_ansible_branch=master | nsxt_ansible_branch=dev |
+| nsx_t_pipeline_branch=nsxt_2.3.0 |  nsxt_ansible_branch=nsxt_2.4.0 | nsx_t_pipeline_branch=master |
+
 Also, if ovftool and ova files were downloaded manually, add ``ova_file_name=<ova_file_name>`` and ``ovftool_file_name=<ovftool_file_name>`` in nsx_pipeline_config.yml as well.
+Ignore this if you are using the docker image provided in this repository.
 
 ---
 
 Browse to the Concourse pipeline: http://<CONCOURSE_URL>/teams/main/pipelines/install-nsx-t/ (example: http://10.85.99.130:8080/teams/main/pipelines/install-nsx-t/) and click on the plus on the upper right corner to trigger a build to install NSX-T. If you are prompted with a username and password, use 'nsx' and 'vmware'.
 
-Check out the [Troubleshooting Guide](https://github.com/vmware/nsx-t-datacenter-ci-pipelines/wiki/Troubleshooting) for troubleshooting tips.
+Check out the [Troubleshooting Guide](./doc/Utilities-and-troubleshooting.md) for troubleshooting tips.
 
 ## Contributing
 

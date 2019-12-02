@@ -1,3 +1,4 @@
+### [OPTIONAL] For all the configs below
 nsx_t_t1router_logical_switches_spec: |
   t1_routers:
   # Add additional T1 Routers or collapse switches into same T1 Router as needed
