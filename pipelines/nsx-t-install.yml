@@ -1,5 +1,6 @@
 ---
 nsx_t_install_params: &nsx-t-install-params
+  nsxt_ansible_branch_int: ((nsxt_ansible_branch))
   enable_ansible_debug_int: ((enable_ansible_debug))
   vcenter_datacenter_int: ((vcenter_datacenter))
   vcenter_datastore_int: ((vcenter_datastore))
