@@ -248,6 +248,19 @@
         state: present
       register: vtep_pool_object
 
+    - name: Apply license
+      uri:
+        url: "https://{{ hostvars['localhost'].nsx_manager_ip }}/api/v1/licenses"
+        method: POST
+        validate_certs: no
+        force_basic_auth: yes
+        user: "{{hostvars['localhost'].nsx_manager_username}}"
+        password: "{{hostvars['localhost'].nsx_manager_password}}"
+        body_format: json
+        body:
+          license_key: "{{license_key}}"
+        status_code: 200
+
     - name: Add Edge VM as transport node
       nsxt_transport_nodes:
         hostname: "{{hostvars['localhost'].nsx_manager_ip}}"
