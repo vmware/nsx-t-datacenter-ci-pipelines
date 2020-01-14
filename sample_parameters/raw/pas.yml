@@ -96,6 +96,7 @@ nsx_t_csr_request_spec: |
     city: SF                     # EDIT
     key_size: 2048               # Valid values: 2048 or 3072
     algorithm: RSA               # Valid values: RSA or DSA
+    days_valid: 3650             # OPTIONAL defaults to 3650
 
 
 nsx_t_lbr_spec: |
