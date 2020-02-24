@@ -615,7 +615,7 @@ def generate_self_signed_cert(common_name, csr_request):
     resp = client.post(api_endpoint, payload)
     csr_id = resp.json()['id']
 
-    days_valid = csr_request.get('days_valid', '3650')
+    days_valid = csr_request.get('days_valid', '365')
     self_sign_cert_api_endpint = TRUST_MGMT_SELF_SIGN_CERT
     self_sign_cert_url = ('%s%s?action=self_sign&&days_valid=%s' %
                           (self_sign_cert_api_endpint, csr_id, days_valid))
