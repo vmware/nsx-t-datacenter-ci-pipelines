@@ -165,7 +165,7 @@
         - hostvars['localhost'].resource_reservation_off == "true"
 
     - name: Deploy additional controller-managers
-      nsxt_controller_manager_auto_deployment:
+      nsxt_manager_auto_deployment:
         hostname: "{{hostvars['localhost'].nsx_manager_ip}}"
         username: "{{hostvars['localhost'].nsx_manager_username}}"
         password: "{{hostvars['localhost'].nsx_manager_password}}"
