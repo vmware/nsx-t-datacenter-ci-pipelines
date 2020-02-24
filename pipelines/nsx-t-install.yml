@@ -32,6 +32,7 @@ nsx_t_install_params: &nsx-t-install-params
   nsx_manager_deployment_ip_prefix_length_int: ((nsx_manager_deployment_ip_prefix_length))
   nsx_manager_ssh_enabled_int: ((nsx_manager_ssh_enabled))
   resource_reservation_off_int: ((resource_reservation_off))
+  appliance_ready_wait_int: ((appliance_ready_wait))
 
   compute_manager_username_int: ((compute_manager_username))
   compute_manager_password_int: ((compute_manager_password))

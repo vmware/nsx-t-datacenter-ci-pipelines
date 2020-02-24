@@ -15,6 +15,7 @@ def add_default_params_if_necessary():
         'nsx_license_key': '',
         'nsx_manager_root_pwd': 'Admin!23Admin',
         'nsx_manager_cli_pwd': 'Admin!23Admin',
+        'appliance_ready_wait': '2',
         'compute_manager_username': 'Administrator@vsphere.local',
         'compute_manager_password': 'Admin!23',
         'compute_manager_2_vcenter_ip': '',

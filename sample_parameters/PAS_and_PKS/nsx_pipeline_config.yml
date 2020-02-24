@@ -36,6 +36,7 @@ vcenter_datacenter: RegionA01
 vcenter_cluster: RegionA01-MGMT
 vcenter_datastore: iscsi
 resource_reservation_off: true
+appliance_ready_wait: 2                  # [OPTIONAL] Minutes to wait for appliance services to be ready after NSX can be pinged
 
 # Compute manager credentials should be the same as above vCenter's if
 # controllers and edges are to be on the same vCenter
@@ -257,7 +258,7 @@ nsx_t_csr_request_spec: |
     city: SF                     # EDIT
     key_size: 2048               # Valid values: 2048 or 3072
     algorithm: RSA               # Valid values: RSA or DSA
-    days_valid: 3650             # OPTIONAL defaults to 3650
+    days_valid: 365              # OPTIONAL defaults to 365
 
 
 nsx_t_lbr_spec: |

@@ -200,6 +200,10 @@
       with_items: "{{groups['controllers']}}"
       when: groups['controllers'] is defined
 
+    - name: Wait for NSX appliances to be status up
+      pause:
+        minutes: "{{hostvars['localhost'].appliance_ready_wait}}"
+
       # TODO: does not support tag
     - name: Create Transport Zones
       nsxt_transport_zones:

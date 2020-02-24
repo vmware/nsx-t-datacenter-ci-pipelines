@@ -36,6 +36,7 @@ vcenter_datacenter: RegionA01
 vcenter_cluster: RegionA01-MGMT
 vcenter_datastore: iscsi
 resource_reservation_off: true
+appliance_ready_wait: 2                  # [OPTIONAL] Minutes to wait for appliance services to be ready after NSX can be pinged
 
 # Compute manager credentials should be the same as above vCenter's if
 # controllers and edges are to be on the same vCenter

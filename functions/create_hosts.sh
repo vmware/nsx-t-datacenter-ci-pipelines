@@ -170,6 +170,7 @@ tier0_uplink_port_subnet="$tier0_uplink_port_subnet_int"
 tier0_uplink_next_hop_ip="$tier0_uplink_next_hop_ip_int"
 
 resource_reservation_off="$resource_reservation_off_int"
+appliance_ready_wait="$appliance_ready_wait_int"
 nsx_manager_ssh_enabled="$nsx_manager_ssh_enabled_int"
 unified_appliance="$unified_appliance_int"
 EOF
