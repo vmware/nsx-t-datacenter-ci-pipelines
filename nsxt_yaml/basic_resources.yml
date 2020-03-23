@@ -179,6 +179,7 @@
         password: "{{hostvars['localhost'].nsx_manager_password}}"
         validate_certs: False
         logical_router_name: "{{hostvars['localhost'].tier0_router_name}}"
+        display_name: "tier0 static route"
         next_hops:
         - administrative_distance: '1'
           ip_address: "{{hostvars['localhost'].tier0_uplink_next_hop_ip}}"
