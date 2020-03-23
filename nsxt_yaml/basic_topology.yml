@@ -288,7 +288,6 @@
               ip_pool_name: "{{vtep_ip_pool_name}}"
             transport_zone_endpoints:
             - transport_zone_name: "{{overlay_transport_zone}}"
-              transport_zone_name: "{{vlan_transport_zone}}"
           - host_switch_profiles:
             - name: "{{edge_uplink_prof}}"
               type: UplinkHostSwitchProfile
@@ -302,7 +301,6 @@
               ip_pool_name: "{{vtep_ip_pool_name}}"
             transport_zone_endpoints:
             - transport_zone_name: "{{vlan_transport_zone}}"
-              transport_zone_name: "{{overlay_transport_zone}}"
         node_deployment_info:
           resource_type: "EdgeNode"
           display_name: "{{hostvars[item].hostname}}"
