@@ -28,7 +28,8 @@ fi
 
 create_hosts
 
-cp hosts ${PIPELINE_DIR}/nsxt_yaml/basic_resources.yml ${PIPELINE_DIR}/nsxt_yaml/vars.yml nsxt-ansible/
+cp ${PIPELINE_DIR}/nsxt_yaml/basic_resources.yml ${PIPELINE_DIR}/nsxt_yaml/vars.yml nsxt-ansible/
+cp hosts nsxt-ansible/hosts_file
 cd nsxt-ansible
 
 NO_OF_CONTROLLERS=$(curl -k -u "admin:$nsx_manager_password_int" \
@@ -43,7 +44,7 @@ fi
 # when obtaining thumbprints
 echo "[defaults]" > ansible.cfg
 echo "host_key_checking = false" >> ansible.cfg
-ansible-playbook $DEBUG -i hosts basic_resources.yml
+ansible-playbook $DEBUG -i hosts_file basic_resources.yml
 STATUS=$?
 
 exit $STATUS
