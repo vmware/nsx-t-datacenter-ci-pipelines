@@ -179,10 +179,10 @@
           deployment_config:
             placement_type: VsphereClusterNodeVMDeploymentConfig
             vc_name: "{{compute_manager_name}}"
-            management_network_id: "{{hostvars['localhost'].vc_management_network_for_deployment}}"
+            management_network: "{{hostvars['localhost'].vc_management_network_for_deployment}}"
             hostname: "{{hostvars[item].hostname}}"
-            compute_id: "{{hostvars['localhost'].vc_cluster_for_deployment}}"
-            storage_id: "{{hostvars['localhost'].vc_datastore_for_deployment}}"
+            compute: "{{hostvars['localhost'].vc_cluster_for_deployment}}"
+            storage: "{{hostvars['localhost'].vc_datastore_for_deployment}}"
             default_gateway_addresses:
             - "{{hostvars[item].default_gateway}}"
             management_port_subnets:
