@@ -10,11 +10,7 @@ from pyVim.connect import SmartConnectNoSSL, Disconnect
 
 import argparse
 import atexit
-import getpass
-import json
-import sys
 
-from tools import cli
 from tools import tasks
 
 import pdb
