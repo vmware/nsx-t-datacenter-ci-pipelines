@@ -217,7 +217,6 @@
         display_name: "{{item.display_name}}"
         description: "NSX {{item.transport_type}} Transport Zone"
         transport_type: "{{item.transport_type}}"
-        host_switch_name: "{{item.host_switch_name}}"
         state: "present"
       with_items:
       - "{{transportzones}}"
@@ -280,8 +279,6 @@
           - host_switch_profiles:
             - name: "{{edge_uplink_prof}}"
               type: UplinkHostSwitchProfile
-            host_switch_mode: STANDARD
-            host_switch_name: "{{overlay_host_switch}}"
             pnics:
             - device_name: fp-eth0
               uplink_name: "{{uplink_1_name}}"
@@ -290,19 +287,6 @@
               ip_pool_name: "{{vtep_ip_pool_name}}"
             transport_zone_endpoints:
             - transport_zone_name: "{{overlay_transport_zone}}"
-          - host_switch_profiles:
-            - name: "{{edge_uplink_prof}}"
-              type: UplinkHostSwitchProfile
-            host_switch_mode: STANDARD
-            host_switch_name: "{{vlan_host_switch}}"
-            pnics:
-            - device_name: fp-eth1
-              uplink_name: "{{uplink_1_name}}"
-            ip_assignment_spec:
-              resource_type: StaticIpPoolSpec
-              ip_pool_name: "{{vtep_ip_pool_name}}"
-            transport_zone_endpoints:
-            - transport_zone_name: "{{vlan_transport_zone}}"
         node_deployment_info:
           resource_type: "EdgeNode"
           display_name: "{{hostvars[item].hostname}}"
@@ -320,7 +304,6 @@
               - "{{hostvars[item].vc_overlay_network_for_edge}}"
               - "{{hostvars[item].vc_uplink_network_for_edge}}"
               management_network: "{{hostvars[item].vc_management_network_for_edge}}"
-              hostname: "{{hostvars[item].hostname}}"
               compute: "{{hostvars[item].vc_cluster_for_edge}}"
               storage: "{{hostvars[item].vc_datastore_for_edge}}"
               default_gateway_addresses:
@@ -329,7 +312,9 @@
               - ip_addresses:
                 - "{{hostvars[item].ip}}"
                 prefix_length: "{{hostvars[item].prefix_length}}"
-              enable_ssh: "{{hostvars['localhost'].nsx_manager_ssh_enabled}}"
+          node_settings:
+            hostname: "{{hostvars[item].hostname}}"
+            enable_ssh: "{{hostvars['localhost'].nsx_manager_ssh_enabled}}"
         state: present
       with_items:
       - "{{groups['edge_nodes']}}"
