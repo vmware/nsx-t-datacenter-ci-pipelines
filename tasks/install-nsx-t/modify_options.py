@@ -10,7 +10,7 @@ DATA_NETWORKS = "data_networks:"
 MANAGEMENT_NETWORK = "management_network: \"{{hostvars[item]"
 COMPUTE = "compute: \"{{hostvars[item].vc_cluster_for_edge"
 STORAGE = "storage: \"{{hostvars[item].vc_datastore_for_edge"
-
+NODE_SETTINGS = "node_settings"
 
 def add_new_line_if_absent(line):
     if line.endswith('\n'):
@@ -38,16 +38,14 @@ def add_dns_server_option():
                     dns_line = ' ' * leading_spaces + ("dns_server: %s\n"
                                                        % dns_servers_spec.split(',')[0])
                     line = line.replace(line, dns_line)
-                elif PREFIX_LENGTH in line:
-                    leading_spaces = len(line) - len(line.lstrip()) - 2
+                elif NODE_SETTINGS in line:
+                    leading_spaces = len(line) - len(line.lstrip()) + 2
                     dns_line = ' ' * leading_spaces
-                    if ',' not in dns_servers_spec:
-                        dns_line += "dns_servers: [\"{{hostvars['localhost'].dns_server}}\"]"
-                    else:
-                        dns_servers = [s.strip() for s in dns_servers_spec.split(',')]
-                        dns_line += "dns_servers:"
-                        for server in dns_servers:
-                            dns_line += '\n' + ' ' * leading_spaces + "- %s" % server
+
+                    dns_servers = [s.strip() for s in dns_servers_spec.split(',')]
+                    dns_line += "dns_servers:"
+                    for server in dns_servers:
+                        dns_line += '\n' + ' ' * leading_spaces + "- %s" % server
                     line = line.replace(line, line + dns_line)
                 new_file.write(add_new_line_if_absent(line))
     replace_file(abs_path)
