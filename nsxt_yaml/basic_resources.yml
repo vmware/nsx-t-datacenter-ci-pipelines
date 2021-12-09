@@ -95,8 +95,6 @@
           - host_switch_profiles:
             - name: "{{item}}-profile"
               type: UplinkHostSwitchProfile
-            host_switch_name: "{{overlay_host_switch}}"
-            host_switch_mode: "STANDARD"
             pnics: "{{pnic_list}}"
             ip_assignment_spec:
               resource_type: StaticIpPoolSpec
@@ -149,13 +147,12 @@
           - host_switch_profiles:
             - name: "{{host_uplink_prof}}"
               type: UplinkHostSwitchProfile
-            host_switch_name: "{{overlay_host_switch}}"
             pnics: "{{pnic_list}}"
             ip_assignment_spec:
               resource_type: StaticIpPoolSpec
               ip_pool_name: "{{vtep_ip_pool_name}}"
-        transport_zone_endpoints:
-        - transport_zone_name: "{{overlay_transport_zone}}"
+            transport_zone_endpoints:
+            - transport_zone_name: "{{overlay_transport_zone}}"
         node_deployment_info:
           resource_type: "HostNode"
           display_name: "{{hostvars[item].fabric_node_name}}"

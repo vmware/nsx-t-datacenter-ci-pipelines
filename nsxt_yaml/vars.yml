@@ -10,10 +10,8 @@ license_key: "M40VJ-DT34J-381C1-0A222-0NPN7"
 transportzones:
 - display_name: "{{overlay_transport_zone}}"
   transport_type: "OVERLAY"
-  host_switch_name: "{{overlay_host_switch}}" # will create one with this name
 - display_name: "{{vlan_transport_zone}}"
   transport_type: "VLAN"
-  host_switch_name: "{{vlan_host_switch}}"
 
 vtep_ip_pool_name: vtep-ip-pool
 

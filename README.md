@@ -41,10 +41,10 @@ The above command will automatically download the ovftool (e.g. VMware-ovftool-4
 ---
 __If running the pipeline on existing concourse environment and not using the nsx-t-install image, please perform following additional steps:__ in nsx_pipeline_config.yml that was created under /home/concourse, add the following two lines at the beginning, depending on which NSX-T version you are deploying:
 
-| NSX-T 2.3.0 & earlier  |   NSX-T 2.4.0   |  NSX-T 2.5.0  |
-|:----------------------:|:---------------:|:-------------:|
-| nsxt_ansible_branch=v1.0.0 |  nsxt_ansible_branch=master | nsxt_ansible_branch=dev |
-| nsx_t_pipeline_branch=nsxt_2.3.0 |  nsxt_ansible_branch=nsxt_2.4.0 | nsx_t_pipeline_branch=master |
+| NSX-T 2.3.0 & earlier  |   NSX-T 2.4.0   |  NSX-T 2.5.0  |  NSX-T 3.0.0 - 3.1.3 |  NSX-T 3.2.0  |
+|:----------------------:|:---------------:|:-------------:|:-------------:|:-------------:|
+| nsxt_ansible_branch=v1.0.0 |  nsxt_ansible_branch=master | nsxt_ansible_branch=dev |nsxt_ansible_branch=v3.0.0 |nsxt_ansible_branch=v3.0.0
+| nsx_t_pipeline_branch=nsxt_2.3.0 |  nsx_t_pipeline_branch=nsxt_2.4.0 | nsx_t_pipeline_branch=master |nsx_t_pipeline_branch=nsxt_3.0.0 | nsx_t_pipeline_branch=nsxt_3.1.0
 
 Also, if ovftool and ova files were downloaded manually, add ``ova_file_name=<ova_file_name>`` and ``ovftool_file_name=<ovftool_file_name>`` in nsx_pipeline_config.yml as well.
 Ignore this if you are using the docker image provided in this repository.
