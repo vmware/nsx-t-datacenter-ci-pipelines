@@ -66,12 +66,20 @@ if [ "$enable_ansible_debug_int" == "true" ]; then
   DEBUG="-vvv"
 fi
 
+echo "Install Ansible NSXT v3.2.0 Galaxy collection"
+#ansible-galaxy collection install git+https://github.com/vmware/ansible-for-nsxt.git,v3.2.0
+cp ${PIPELINE_DIR}/tasks/install-nsx-t/nsxt-ansible-requirements.yml ./
+ansible-galaxy collection install -r ./nsxt-ansible-requirements.yml
+
 create_hosts
 cp ${PIPELINE_DIR}/tasks/install-nsx-t/get_mo_ref_id.py ./
 python get_mo_ref_id.py --host $vcenter_ip_int --user $vcenter_username_int --password $vcenter_password_int
 
 cp hosts.out ${PIPELINE_DIR}/nsxt_yaml/basic_topology.yml ${PIPELINE_DIR}/nsxt_yaml/vars.yml nsxt-ansible/
 cd nsxt-ansible
+echo "cd nsxt-ansible"
+ls
+
 cp ${PIPELINE_DIR}/tasks/install-nsx-t/modify_options.py ./
 
 if [[ "$unified_appliance_int" == "true" ]]; then
