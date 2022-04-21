@@ -31,7 +31,7 @@
         - "{{groups['edge_nodes']}}"
 
     - name: NSX-T Edge Cluster
-      nsxt_edge_clusters:
+      vmware.ansible_for_nsxt.nsxt_edge_clusters:
         hostname: "{{hostvars['localhost'].nsx_manager_ip}}"
         username: "{{hostvars['localhost'].nsx_manager_username}}"
         password: "{{hostvars['localhost'].nsx_manager_password}}"
@@ -44,25 +44,8 @@
 ###############################################################################
 # Configure compute clusters for auto NSX install
 ###############################################################################
-    - name: Enable auto install of NSX for specified clusters
-      nsxt_compute_collection_fabric_templates:
-        hostname: "{{hostvars['localhost'].nsx_manager_ip}}"
-        username: "{{hostvars['localhost'].nsx_manager_username}}"
-        password: "{{hostvars['localhost'].nsx_manager_password}}"
-        validate_certs: False
-        display_name: "{{item}}-fabric_template"
-        compute_manager_name: "{{compute_manager_name}}"
-        cluster_name: "{{item}}"
-        auto_install_nsx: True
-        state: present
-      with_items:
-        - "{{hostvars['localhost'].clusters_to_install_nsx}}"
-      register: auto_install_nsx_result
-      when:
-        - hostvars['localhost'].clusters_to_install_nsx is defined
-
     - name: Create uplink profiles for the clusters to be auto installed
-      nsxt_uplink_profiles:
+      vmware.ansible_for_nsxt.nsxt_uplink_profiles:
         hostname: "{{hostvars['localhost'].nsx_manager_ip}}"
         username: "{{hostvars['localhost'].nsx_manager_username}}"
         password: "{{hostvars['localhost'].nsx_manager_password}}"
@@ -79,10 +62,9 @@
       when:
         - hostvars['localhost'].clusters_to_install_nsx is defined
         - hostvars['localhost'].per_cluster_vlans is defined
-        - auto_install_nsx_result.changed == true
 
     - name: Create transport node profile for cluster
-      nsxt_transport_node_profiles:
+      vmware.ansible_for_nsxt.nsxt_transport_node_profiles:
         hostname: "{{hostvars['localhost'].nsx_manager_ip}}"
         username: "{{hostvars['localhost'].nsx_manager_username}}"
         password: "{{hostvars['localhost'].nsx_manager_password}}"
@@ -95,12 +77,14 @@
           - host_switch_profiles:
             - name: "{{item}}-profile"
               type: UplinkHostSwitchProfile
+            host_switch_name: "{{overlay_host_switch}}"
+            host_switch_mode: "STANDARD"
             pnics: "{{pnic_list}}"
             ip_assignment_spec:
               resource_type: StaticIpPoolSpec
               ip_pool_name: "{{vtep_ip_pool_name}}"
-        transport_zone_endpoints:
-        - transport_zone_name: "{{overlay_transport_zone}}"
+            transport_zone_endpoints:
+            - transport_zone_name: "{{overlay_transport_zone}}"
         state: present
       with_items:
         - "{{hostvars['localhost'].clusters_to_install_nsx}}"
@@ -110,7 +94,7 @@
       register: transport_node_profile_result
 
     - name: Create transport node collection for the cluster to enable auto creation of TNs
-      nsxt_transport_node_collections:
+      vmware.ansible_for_nsxt.nsxt_transport_node_collections:
         hostname: "{{hostvars['localhost'].nsx_manager_ip}}"
         username: "{{hostvars['localhost'].nsx_manager_username}}"
         password: "{{hostvars['localhost'].nsx_manager_password}}"
@@ -133,7 +117,7 @@
 # Install NSX on individual ESX hosts, if any
 ###############################################################################
     - name: Create transport nodes for ESX hosts (2.4.0 and later)
-      nsxt_transport_nodes:
+      vmware.ansible_for_nsxt.nsxt_transport_nodes:
         hostname: "{{hostvars['localhost'].nsx_manager_ip}}"
         username: "{{hostvars['localhost'].nsx_manager_username}}"
         password: "{{hostvars['localhost'].nsx_manager_password}}"
@@ -147,6 +131,8 @@
           - host_switch_profiles:
             - name: "{{host_uplink_prof}}"
               type: UplinkHostSwitchProfile
+            host_switch_name: "{{overlay_host_switch}}"
+            host_switch_mode: "STANDARD"
             pnics: "{{pnic_list}}"
             ip_assignment_spec:
               resource_type: StaticIpPoolSpec
@@ -174,7 +160,7 @@
 # Tier 0 Router
 ###############################################################################
     - name: NSX-T T0 Logical Router
-      nsxt_logical_routers:
+      vmware.ansible_for_nsxt.nsxt_logical_routers:
         hostname: "{{hostvars['localhost'].nsx_manager_ip}}"
         username: "{{hostvars['localhost'].nsx_manager_username}}"
         password: "{{hostvars['localhost'].nsx_manager_password}}"
@@ -189,7 +175,7 @@
       register: t0
 
     - name: Add static routes
-      nsxt_logical_router_static_routes:
+      vmware.ansible_for_nsxt.nsxt_logical_router_static_routes:
         hostname: "{{hostvars['localhost'].nsx_manager_ip}}"
         username: "{{hostvars['localhost'].nsx_manager_username}}"
         password: "{{hostvars['localhost'].nsx_manager_password}}"
@@ -203,7 +189,7 @@
         state: present
 
     - name: Create VLAN logical switch
-      nsxt_logical_switches:
+      vmware.ansible_for_nsxt.nsxt_logical_switches:
         hostname: "{{hostvars['localhost'].nsx_manager_ip}}"
         username: "{{hostvars['localhost'].nsx_manager_username}}"
         password: "{{hostvars['localhost'].nsx_manager_password}}"
@@ -218,7 +204,7 @@
         - t0.changed == true
 
     - name: Logical Switch Port for uplink_1
-      nsxt_logical_ports:
+      vmware.ansible_for_nsxt.nsxt_logical_ports:
         hostname: "{{hostvars['localhost'].nsx_manager_ip}}"
         username: "{{hostvars['localhost'].nsx_manager_username}}"
         password: "{{hostvars['localhost'].nsx_manager_password}}"
@@ -232,7 +218,7 @@
         - t0.changed == true
 
     - name: Create logical router port for uplink1
-      nsxt_logical_router_ports:
+      vmware.ansible_for_nsxt.nsxt_logical_router_ports:
         hostname: "{{hostvars['localhost'].nsx_manager_ip}}"
         username: "{{hostvars['localhost'].nsx_manager_username}}"
         password: "{{hostvars['localhost'].nsx_manager_password}}"
@@ -255,7 +241,7 @@
         - t0.changed == true
 
     - name: Logical Switch Port for uplink_2
-      nsxt_logical_ports:
+      vmware.ansible_for_nsxt.nsxt_logical_ports:
         hostname: "{{hostvars['localhost'].nsx_manager_ip}}"
         username: "{{hostvars['localhost'].nsx_manager_username}}"
         password: "{{hostvars['localhost'].nsx_manager_password}}"
@@ -270,7 +256,7 @@
         - t0.changed == true
 
     - name: Create logical router port for uplink2
-      nsxt_logical_router_ports:
+      vmware.ansible_for_nsxt.nsxt_logical_router_ports:
         hostname: "{{hostvars['localhost'].nsx_manager_ip}}"
         username: "{{hostvars['localhost'].nsx_manager_username}}"
         password: "{{hostvars['localhost'].nsx_manager_password}}"
@@ -294,7 +280,7 @@
         - t0.changed == true
 
     - name: HA VIP for T0 Router
-      nsxt_logical_routers:
+      vmware.ansible_for_nsxt.nsxt_logical_routers:
         hostname: "{{hostvars['localhost'].nsx_manager_ip}}"
         username: "{{hostvars['localhost'].nsx_manager_username}}"
         password: "{{hostvars['localhost'].nsx_manager_password}}"
