@@ -6,7 +6,7 @@ image_resource:
   type: docker-image
   source:
     repository: projects.registry.vmware.com/nsxt_gen_pipeline/nsx-t-gen-worker
-    tag: ubuntu18
+    tag: ubuntu18-v1
 
 inputs:
   - name: nsx-t-gen-pipeline
