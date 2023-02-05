@@ -21,7 +21,7 @@ HOST_ID_FIELDS = [
     'vc_datacenter_for_edge', 'vc_cluster_for_edge',
     'vc_datastore_for_edge', 'vc_uplink_network_for_edge',
     'vc_overlay_network_for_edge', 'vc_management_network_for_edge',
-    'vc_datacenter_for_deployment', 'vc_cluster_for_deployment',
+    'vc_datacenter_for_deployment', 'vc_cluster_for_deployment', 'vc_datastore_for_nsx',
     'vc_datastore_for_deployment', 'vc_management_network_for_deployment'
 ]
 
@@ -68,6 +68,8 @@ class MoRefIdRetriever(object):
         #     }
         # }
         self.mapping = {}
+        self.nsx_datastore_key = "nsx_datastore"
+        self.edge_datastore_key = "edge_datastore"
         self.mo_id_set = set()
         self.vc_objects = self._get_container_view_for_datacenter()
 
@@ -92,6 +94,30 @@ class MoRefIdRetriever(object):
         for vc_object in vc_object_list:
             mo_id = self.parse_mo_ref_id_from_obj(vc_object)
             mapping[vc_object.name] = mo_id
+
+    def build_nsx_storage_install_mapping_for_vc_obj_type(self, vc_object_list, mapping):
+        #In the beginging, the deployed cluster1 datastore naming convention is fixed as:
+        #{'concourse_dc1': {'cluster': {'cluster1': 'domain-c9'},
+        #           'datastore': {'datastore': 'datastore-13',
+        #                         'datastore (1)': 'datastore-17','vsanDatastore': 'datastore-49' }}}
+        #However, the datastore naming is changed with dynamic naming format that is changed according
+        #to ESXi host ip name like:
+        #{'concourse_dc1': {'cluster': {'cluster1': 'domain-c27'},
+        #           'datastore': {'datastore-10.221.121.47': 'datastore-32',
+        #                         'datastore-10.221.121.48': 'datastore-36', 'vsanDatastore': 'datastore-49'},}}
+        #Hence, we rebuild datastore name in mapping in order to use a fixed datastore name
+        #for both nsx and edge instllation.
+        for vc_object in vc_object_list:
+            mo_id = self.parse_mo_ref_id_from_obj(vc_object)
+            if vc_object.name != "vsanDatastore":
+                if self.nsx_datastore_key not in mapping.keys():
+                    #mapping[self.nsx_datastore_key] = mo_id
+                    mapping[self.nsx_datastore_key] = {vc_object.name : mo_id}
+                elif self.edge_datastore_key not in mapping.keys():
+                    #mapping[self.edge_datastore_key] = mo_id
+                    mapping[self.edge_datastore_key] = {vc_object.name : mo_id}
+            else:
+                mapping[vc_object.name] = mo_id
 
     def _get_container_view_for_datacenter(self):
         # content = get_content()
@@ -123,10 +149,16 @@ class MoRefIdRetriever(object):
                 network_mapping = datacenter_mapping[NETWORK]
                 self.build_mapping_for_vc_obj_type(networks, network_mapping)
 
-                # storage
+                # get storage
                 datastores = vc_object.datastore
                 datastore_mapping = datacenter_mapping[DATASTORE]
-                self.build_mapping_for_vc_obj_type(datastores, datastore_mapping)
+                is_nsx_install_cluster = True if cluster_mapping.keys()[0] == "cluster1" else False
+                if not is_nsx_install_cluster:
+                    self.build_mapping_for_vc_obj_type(datastores, datastore_mapping)
+                else:
+                    print 'build nsx install clutser datastore mapping'
+                    self.build_nsx_storage_install_mapping_for_vc_obj_type(datastores, datastore_mapping)
+                print 'datastore_mapping is %s' % datastore_mapping
 
                 # if vc_object.name not in mapping:
                 #     mapping[vc_object.name] = mo_id
@@ -173,7 +205,9 @@ class HostsFileWriter(object):
         except StopIteration:
             return line
 
+        print "line is: %s" % line
         id_value = line.split('=')[-1].strip(" \"'")
+        print "found id_value is: %s" % id_value
         if id_var_name.startswith('vc_datacenter_'):
             self.current_datacenter = id_value
             print "found datacenter specified as %s" % id_value
@@ -182,6 +216,14 @@ class HostsFileWriter(object):
         vc_object_type = id_var_name.split('_')[-3]
         # pdb.set_trace()
         mo_id = self.mo_id_retriever.get_mo_id(self.current_datacenter, vc_object_type, id_value)
+        if id_var_name == 'vc_datastore_for_nsx':
+            #var vcenter_datastore_for_nsx is used to save name rather than a MoRefId
+            mo_id = mo_id.keys()[0]
+        if id_var_name == 'vc_datastore_for_edge' or\
+            id_var_name == 'vc_datastore_for_deployment':
+            #get MoRefId from datastore mapping
+            mo_id = mo_id.values()[0]
+
         new_line = '%s=%s' % (id_var_name, mo_id)
         return new_line
 
