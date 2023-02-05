@@ -9,7 +9,7 @@
       vmware.ansible_for_nsxt.nsxt_deploy_ova:
         ovftool_path: "{{ovftool_bin_path}}"
         datacenter: "{{hostvars['localhost'].vcenter_datacenter}}"
-        datastore: "{{hostvars['localhost'].vcenter_datastore}}"
+        datastore: "{{hostvars['localhost'].vc_datastore_for_nsx}}"
         portgroup: "{{hostvars['localhost'].mgmt_portgroup}}"
         cluster: "{{hostvars['localhost'].vcenter_cluster}}"
         vmname: "{{hostvars['localhost'].nsx_manager_assigned_hostname}}"
@@ -217,6 +217,7 @@
         display_name: "{{item.display_name}}"
         description: "NSX {{item.transport_type}} Transport Zone"
         transport_type: "{{item.transport_type}}"
+        is_default: True
         state: "present"
       with_items:
       - "{{transportzones}}"

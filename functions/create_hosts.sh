@@ -144,6 +144,7 @@ mgmt_portgroup="$mgmt_portgroup_int"
 
 vc_datacenter_for_deployment="$vcenter_datacenter_int"
 vc_cluster_for_deployment="$vcenter_cluster_int"
+vc_datastore_for_nsx="$vcenter_datastore_int"
 vc_datastore_for_deployment="$vcenter_datastore_int"
 vc_management_network_for_deployment="$mgmt_portgroup_int"
 
